@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate, RouterProvider } from "react-router-dom"
 import Login from "./Pages/Login";
 import Root from "./layout/Root";
 import Register from "./Pages/Register";
+import Home from "./Pages/Home";
 
 const router = createBrowserRouter([
   {
@@ -10,7 +11,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/sign-in" replace />, // Redirect root to sign-in
+        element: <Home />
       },
       {
         path: "/sign-in",
