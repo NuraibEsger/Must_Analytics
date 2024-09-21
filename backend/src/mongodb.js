@@ -1,23 +1,39 @@
 const mongoose = require('mongoose');
 
-mongoose.connect('mongodb://localhost:27017/auth')
+mongoose.connect('mongodb://localhost:27017/Must_Analytics')
 .then(() => {
   console.log("mongodb connected");
 }).catch((err) => {
   console.log(err);
 });
 
-const UserSchema = new mongoose.Schema({
-    email: {
-        type:String,
-        required: true
-    },
-    password: {
-        type:String,
-        required: true
-    }
+// Image Schema for storing uploaded images
+const ImageSchema = new mongoose.Schema({
+  fileName: {
+    type: String,
+    required: true,
+  },
+  filePath: {
+    type: String,
+    required: true,
+  },
 });
 
-const collection = new mongoose.model("loginUsers", UserSchema);
+// Project Schema with one-to-many relationship to Image
+const ProjectSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  images: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Image' }],
+});
 
-module.exports = collection
+// Models
+const Project = mongoose.model('Project', ProjectSchema);
+const Image = mongoose.model('Image', ImageSchema);
+
+module.exports = {Project, Image};

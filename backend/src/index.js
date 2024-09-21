@@ -3,21 +3,73 @@ const path = require("path");
 const hbs = require("hbs");
 const collection = require("./mongodb");
 const cors = require("cors");
+const multer = require("multer");
+const { Project, Image } = require("./mongodb"); // Import the new models
+const fs = require('fs');
 
 const app = express();
 
 app.use(
   cors({
     origin: "http://localhost:3000",
+    methods: "GET,POST,PUT,DELETE",
+    credentials: true,
   })
 );
-
-const templatePath = path.join(__dirname, "../templates");
-
 app.use(express.json());
 app.set("view engine", "hbs");
-app.set("views", templatePath);
+app.set("views", path.join(__dirname, '../templates'));
 app.use(express.urlencoded({ extended: false }));
+
+// Multer storage setup
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = './public/images';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, {recursive: true})
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    return cb(null, `${Date.now()}_${file.originalname}`);
+  },
+});
+
+const upload = multer({storage});
+
+// Create a new project and associate uploaded images
+app.post('/upload', upload.array('files', 10), async (req, res) => {  
+  try {
+    const { name, description } = req.body;
+
+    // Create project
+    console.log('Saving project:', { name, description });
+    const project = new Project({ name, description });
+    await project.save();
+
+    // Save each uploaded image
+    const imagePromises = req.files.map((file) => {
+      const image = new Image({
+        fileName: file.originalname,
+        filePath: file.path,
+      });
+      return image.save();
+    });
+
+    console.log('Saving images...');
+    const images = await Promise.all(imagePromises);
+    console.log('Images saved:', images);
+
+    // Add images to the project
+    project.images = images.map((image) => image._id);
+    await project.save();
+
+    res.json({ message: 'Project and images saved successfully' });
+  } catch (error) {
+    console.error('Upload Error: ', error);
+    res.status(500).json({ message: 'Error uploading images', error });
+  }
+});
 
 app.get("/getUsers", (req, res) => {
   res
@@ -50,14 +102,12 @@ app.post("/login", async (req, res) => {
     });
 
     if (check.password === req.body.password) {
-        res.send("success")
+      res.send("success");
+    } else {
+      res.send("wrong password");
     }
-    else {
-        res.send("wrong password")
-    }
-
   } catch {
-    res.send("no user found")
+    res.send("no user found");
   }
 });
 
@@ -70,6 +120,11 @@ app.post("/signUp", async (req, res) => {
 
   res.send("success");
 });
+
+// app.post("/upload", upload.single("file"), (req, res) => {
+//   console.log(req.body);
+//   console.log(req.file);
+// });
 
 app.listen(3001, () => {
   console.log("Server is Running");

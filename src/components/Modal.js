@@ -1,70 +1,89 @@
-// Modal.jsx
-import React, { useEffect } from "react";
+import axios from "axios";
+import React, { useState } from "react";
 
 export default function Modal({ isOpen, toggleModal }) {
-  useEffect(() => {
-    const handleEsc = (event) => {
-      if (event.key === "Escape") {
-        toggleModal();
-      }
-    };
-    document.addEventListener('keydown', handleEsc);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [files, setFiles] = useState([]);
 
-    return () => {
-        document.removeEventListener('keydown', handleEsc);
-      };
-  }, [toggleModal]);
+  const upload = (e) => {
+  e.preventDefault();
+  const formData = new FormData();
 
+  formData.append('name', name);
+  formData.append('description', description);
 
-  if (!isOpen) return null; // If modal is not open, don't render it.
+  // Append multiple files
+  Array.from(files).forEach((file) => {
+    formData.append('files', file);
+  });
+
+  for (let pair of formData.entries()) {
+    console.log(pair[0], pair[1]);
+  }
+
+  axios.post('http://localhost:3001/upload', formData)
+    .then((res) => {
+      toggleModal(); // Close modal on success
+    })
+    .catch((err) => {
+      console.log("ASASASA");
+      
+      console.log(err); // Check error details here
+    });
+};
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg">
         <h2 className="text-xl font-bold mb-4">Add New Project</h2>
 
-        {/* Form */}
-        <form>
+        <form method="post">
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">Name</label>
+            <label className="block text-gray-700 font-bold mb-2">Project Name</label>
             <input
               type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Project Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
             />
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">
-              Description
-            </label>
+            <label className="block text-gray-700 font-bold mb-2">Description</label>
             <textarea
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Project Description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
             ></textarea>
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">
-              Upload File
-            </label>
+            <label className="block text-gray-700 font-bold mb-2">Upload Files</label>
             <input
               type="file"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-600"
+              multiple
+              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              onChange={(e) => setFiles(e.target.files)}
             />
           </div>
 
           <div className="flex justify-between">
             <button
               type="button"
-              className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+              className="bg-gray-500 text-white px-4 py-2 rounded-md"
               onClick={toggleModal}
             >
               Close
             </button>
             <button
               type="submit"
-              className="bg-purple-700 text-white px-4 py-2 rounded-md hover:bg-purple-800"
+              className="bg-purple-700 text-white px-4 py-2 rounded-md"
+              onClick={upload}
             >
               Save
             </button>
