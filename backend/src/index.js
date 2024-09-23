@@ -41,6 +41,7 @@ const upload = multer({storage});
 app.get('/projects', async (req, res) => {
   try {
     const projects = await Project.find().populate('images'); // Populates the images field with image details
+    
     res.json(projects);
   } catch (error) {
     console.error('Error fetching projects:', error);
@@ -122,6 +123,28 @@ app.get("/signUp", (req, res) => {
       console.log(err);
     });
 });
+
+//#region Label
+
+// POST endpoint to create a label
+app.post('/labels', async (req, res) => {
+  const { name, color } = req.body;
+
+  try {
+    const newLabel = new Label({
+      name,
+      color,
+    });
+
+    const savedLabel = await newLabel.save();
+    res.status(201).json(savedLabel);
+  } catch (error) {
+    console.error('Error creating label:', error);
+    res.status(500).json({ message: 'Error creating label', error });
+  }
+});
+
+//#endregion
 
 //#region Auth
 app.post("/login", async (req, res) => {
