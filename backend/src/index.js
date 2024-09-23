@@ -37,8 +37,36 @@ const storage = multer.diskStorage({
 
 const upload = multer({storage});
 
+// Get all projects along with associated images
+app.get('/projects', async (req, res) => {
+  try {
+    const projects = await Project.find().populate('images'); // Populates the images field with image details
+    res.json(projects);
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ message: 'Error fetching projects', error });
+  }
+});
+
+// Get a project by ID along with associated images
+app.get('/projects/:id', async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const project = await Project.findById(projectId).populate('images'); // Populates the images field with image details
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    res.json(project);
+  } catch (error) {
+    console.error('Error fetching project by ID:', error);
+    res.status(500).json({ message: 'Error fetching project', error });
+  }
+});
+
 // Create a new project and associate uploaded images
-app.post('/upload', upload.array('files', 10), async (req, res) => {  
+app.post('/projects', upload.array('files', 10), async (req, res) => {  
   try {
     const { name, description } = req.body;
 
@@ -95,6 +123,7 @@ app.get("/signUp", (req, res) => {
     });
 });
 
+//#region Auth
 app.post("/login", async (req, res) => {
   try {
     const check = await collection.findOne({
@@ -120,11 +149,7 @@ app.post("/signUp", async (req, res) => {
 
   res.send("success");
 });
-
-// app.post("/upload", upload.single("file"), (req, res) => {
-//   console.log(req.body);
-//   console.log(req.file);
-// });
+//#endregion
 
 app.listen(3001, () => {
   console.log("Server is Running");

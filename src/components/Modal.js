@@ -1,37 +1,8 @@
-import axios from "axios";
-import React, { useState } from "react";
+import { useProjectForm } from "../hooks/useProjectForm";
 
 export default function Modal({ isOpen, toggleModal }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [files, setFiles] = useState([]);
-
-  const upload = (e) => {
-  e.preventDefault();
-  const formData = new FormData();
-
-  formData.append('name', name);
-  formData.append('description', description);
-
-  // Append multiple files
-  Array.from(files).forEach((file) => {
-    formData.append('files', file);
-  });
-
-  for (let pair of formData.entries()) {
-    console.log(pair[0], pair[1]);
-  }
-
-  axios.post('http://localhost:3001/upload', formData)
-    .then((res) => {
-      toggleModal(); // Close modal on success
-    })
-    .catch((err) => {
-      console.log("ASASASA");
-      
-      console.log(err); // Check error details here
-    });
-};
+  const { formik, handleFileChange, isSubmitting } =
+    useProjectForm(toggleModal);
 
   if (!isOpen) return null;
 
@@ -42,34 +13,52 @@ export default function Modal({ isOpen, toggleModal }) {
 
         <form method="post">
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">Project Name</label>
+            <label className="block text-gray-700 font-bold mb-2">
+              Project Name
+            </label>
             <input
               type="text"
+              name="name"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Project Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formik.values.name}
+              onChange={formik.handleChange}
             />
+            {formik.errors.name && formik.touched.name && (
+              <span style={{ color: "red" }}>{formik.errors.name}</span>
+            )}
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">Description</label>
+            <label className="block text-gray-700 font-bold mb-2">
+              Description
+            </label>
             <textarea
+              name="description"
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
               placeholder="Project Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              value={formik.values.description}
+              onChange={formik.handleChange}
             ></textarea>
+            {formik.errors.description && formik.touched.description && (
+              <span style={{ color: "red" }}>{formik.errors.description}</span>
+            )}
           </div>
 
           <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">Upload Files</label>
+            <label className="block text-gray-700 font-bold mb-2">
+              Upload Files
+            </label>
             <input
+              name="files"
               type="file"
               multiple
               className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              onChange={(e) => setFiles(e.target.files)}
+              onChange={handleFileChange}
             />
+            {formik.errors.files && formik.touched.files && (
+              <span style={{ color: "red" }}>{formik.errors.files}</span>
+            )}
           </div>
 
           <div className="flex justify-between">
@@ -83,9 +72,9 @@ export default function Modal({ isOpen, toggleModal }) {
             <button
               type="submit"
               className="bg-purple-700 text-white px-4 py-2 rounded-md"
-              onClick={upload}
+              onClick={formik.handleSubmit}
             >
-              Save
+              {isSubmitting ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

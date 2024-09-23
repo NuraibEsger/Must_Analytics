@@ -3,6 +3,8 @@ import Login from "./Pages/Login";
 import Root from "./layout/Root";
 import Register from "./Pages/Register";
 import Home from "./Pages/Home";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./utils/httpClient";
 
 const router = createBrowserRouter([
   {
@@ -11,7 +13,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Home />
+        element: <Home />,
       },
       {
         path: "/sign-in",
@@ -26,7 +28,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
-  return <RouterProvider router={router} />;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
 }
 
 export default App;
