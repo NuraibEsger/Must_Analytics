@@ -7,8 +7,7 @@ export const projectSchema = Yup.object().shape({
     .required("Project Name is required"),
   description: Yup.string()
     .min(10, "Description is too short!")
-    .max(500, "Description is too long!")
-    .required("Project Description is required"),
+    .max(500, "Description is too long!"),
 
   files: Yup.mixed().required("File is required"),
 });

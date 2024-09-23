@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { useProjectForm } from "../hooks/useProjectForm";
+import AddLabelModal from './AddLabelModal'
 
 export default function Modal({ isOpen, toggleModal }) {
   const { formik, handleFileChange, isSubmitting } =
     useProjectForm(toggleModal);
+
+  const [isModalOpen, setModalOpen] = useState(false);
 
   if (!isOpen) return null;
 
@@ -43,6 +47,45 @@ export default function Modal({ isOpen, toggleModal }) {
             {formik.errors.description && formik.touched.description && (
               <span style={{ color: "red" }}>{formik.errors.description}</span>
             )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-gray-700 font-bold mb-2">Labels</label>
+            <div className="v-input v-input--dense theme--light v-text-field v-select v-select--chips v-select--is-multi">
+              <div className="v-input__control">
+                <div
+                  role="combobox"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                  className="v-input__slot"
+                >
+                  <div className="v-select__slot">
+                    <input
+                      required="required"
+                      id="input-3911"
+                      type="text"
+                      autoComplete="off"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                      placeholder="Add labels"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <button
+                type="button"
+                className="v-btn v-btn--icon v-btn--round"
+                onClick={() => setModalOpen(true)}
+              >
+                <span className="v-btn__content">Add Label</span>
+              </button>
+
+              <AddLabelModal
+                isOpen={isModalOpen}
+                onClose={() => setModalOpen(false)}
+              />
+            </div>
           </div>
 
           <div className="mb-4">

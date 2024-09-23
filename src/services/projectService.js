@@ -5,7 +5,6 @@ export const getProjects = (token) => {
 };
 
 export const postProject = (data, token) => {
-  console.log('ez');
   
   return httpClient.post("/projects", data);
 };
