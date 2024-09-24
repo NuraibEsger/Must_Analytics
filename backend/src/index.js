@@ -4,7 +4,7 @@ const hbs = require("hbs");
 const collection = require("./mongodb");
 const cors = require("cors");
 const multer = require("multer");
-const { Project, Image } = require("./mongodb"); // Import the new models
+const { Project, Image, Label } = require("./mongodb"); // Import the new models
 const fs = require('fs');
 
 const app = express();
@@ -72,7 +72,6 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
     const { name, description } = req.body;
 
     // Create project
-    console.log('Saving project:', { name, description });
     const project = new Project({ name, description });
     await project.save();
 
@@ -112,8 +111,8 @@ app.get("/getUsers", (req, res) => {
     });
 });
 
-app.get("/signUp", (req, res) => {
-  res
+app.get("/signUp", async (req, res) => {
+  await res
     .json(
       UserModel.find({}).then(function (users) {
         res.json(users);
@@ -126,10 +125,23 @@ app.get("/signUp", (req, res) => {
 
 //#region Label
 
+//GET endpoint to get labes
+
+app.get('/labels', async (req, res) => {
+  try {
+    const labels = await Label.find();
+    
+    res.json(labels);
+  } catch (error) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json({ message: 'Error fetching projects', error });
+  }
+});
+
 // POST endpoint to create a label
 app.post('/labels', async (req, res) => {
   const { name, color } = req.body;
-
+  
   try {
     const newLabel = new Label({
       name,

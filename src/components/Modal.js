@@ -1,12 +1,67 @@
 import { useState } from "react";
 import { useProjectForm } from "../hooks/useProjectForm";
-import AddLabelModal from './AddLabelModal'
+import AddLabelModal from "./AddLabelModal";
+import { useQuery } from "@tanstack/react-query";
+import { getLabels } from "../services/labelService";
+import Select from "react-select";
 
 export default function Modal({ isOpen, toggleModal }) {
   const { formik, handleFileChange, isSubmitting } =
     useProjectForm(toggleModal);
 
   const [isModalOpen, setModalOpen] = useState(false);
+
+  // Toggle modal visibility
+  const toggleLabelModal = () => {
+    setModalOpen(!isModalOpen);
+  };
+
+  // Fetch labels from the backend when the modal opens
+  const {
+    data,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["labels"],
+    queryFn: async () => {
+      return await getLabels();
+    },
+    cacheTime: 5000,
+  });
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error fetching labels</div>;
+  }
+
+  // Convert the labels to the format required by `react-select`
+  const labelOptions = data.data.map((label) => ({
+    value: label._id,
+    label: label.name,
+    color: label.color, // Include the color from the API response
+  }));
+
+  // Custom styles for react-select to set background color based on label color
+  const customStyles = {
+    option: (provided, state) => ({
+      ...provided,
+      backgroundColor: state.data.color,
+      color: "#fff",
+      padding: 10,
+    }),
+    multiValue: (styles, { data }) => ({
+      ...styles,
+      backgroundColor: data.color,
+      color: "#fff",
+    }),
+    multiValueLabel: (styles, { data }) => ({
+      ...styles,
+      color: "#fff",
+    }),
+  };
 
   if (!isOpen) return null;
 
@@ -49,43 +104,45 @@ export default function Modal({ isOpen, toggleModal }) {
             )}
           </div>
 
-          <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">Labels</label>
-            <div className="v-input v-input--dense theme--light v-text-field v-select v-select--chips v-select--is-multi">
-              <div className="v-input__control">
-                <div
-                  role="combobox"
-                  aria-haspopup="listbox"
-                  aria-expanded="false"
-                  className="v-input__slot"
-                >
-                  <div className="v-select__slot">
-                    <input
-                      required="required"
-                      id="input-3911"
-                      type="text"
-                      autoComplete="off"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      placeholder="Add labels"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div>
-              <button
-                type="button"
-                className="v-btn v-btn--icon v-btn--round"
-                onClick={() => setModalOpen(true)}
-              >
-                <span className="v-btn__content">Add Label</span>
-              </button>
+          <div className="mb-4 flex justify-between">
+            <Select
+              isMulti
+              name="labels"
+              options={labelOptions}
+              className="basic-multi-select w-full"
+              classNamePrefix="select"
+              styles={customStyles} // Apply custom styles to options
+              value={labelOptions.filter(
+                (option) => formik.values.labels?.includes(option.label) // Filter based on formik values
+              )}
+              onChange={(selectedOptions) =>
+                formik.setFieldValue(
+                  "labels",
+                  selectedOptions
+                    ? selectedOptions.map((option) => option.label)
+                    : []
+                )
+              }
+              placeholder="Add labels"
+            />
+            {/* Button next to the input */}
+            <button
+              type="button"
+              className="v-btn v-btn--icon v-btn--round ml-4 p-3 rounded-full text-white"
+              style={{
+                backgroundColor: "rgb(126 34 206 / var(--tw-bg-opacity))",
+              }}
+              onClick={() => setModalOpen(true)}
+            >
+              +
+            </button>
 
-              <AddLabelModal
-                isOpen={isModalOpen}
-                onClose={() => setModalOpen(false)}
-              />
-            </div>
+            <AddLabelModal
+              isOpen={isModalOpen}
+              onClose={() => setModalOpen(false)}
+              toggleLabelModal={toggleLabelModal}
+            />
           </div>
 
           <div className="mb-4">

@@ -29,7 +29,7 @@ const LabelSchema = new mongoose.Schema({
     type: String, // Hex code or any string representation of color
     required: true,
   },
-}, { timestamps: true });
+});
 
 // Project Schema with one-to-many relationship to Image
 const ProjectSchema = new mongoose.Schema({

@@ -28,7 +28,7 @@ const Card = () => {
       {projects.data.map((project) => (
         <div key={project._id} className="flex justify-center">
           <div className="flex justify-center col-span-1 mb-4 md:mb-6 transition-transform transform hover:-translate-y-1">
-            <a
+            <div
               //   href={`/projects/${project.id}`}
               className="p-6 h-full flex flex-row items-center transition duration-300 rounded-lg shadow-lg bg-white hover:shadow-2xl"
             >
@@ -83,7 +83,7 @@ const Card = () => {
                   </small>
                 </div>
               </div>
-            </a>
+            </div>
           </div>
         </div>
       ))}
