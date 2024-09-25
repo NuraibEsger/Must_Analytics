@@ -9,6 +9,6 @@ export const postProject = (data, token) => {
   return httpClient.post("/projects", data);
 };
 
-export const deleteDepartment = (projectId, token) => {
-  return httpClient.delete(`/project/${projectId}`);
+export const getProjectsById = (projectId, token) => {
+  return httpClient.get(`/project/${projectId}`);
 };

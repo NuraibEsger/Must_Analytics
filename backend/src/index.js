@@ -50,11 +50,13 @@ app.get('/projects', async (req, res) => {
 });
 
 // Get a project by ID along with associated images
-app.get('/projects/:id', async (req, res) => {
+app.get('/project/:id', async (req, res) => {
   try {
     const projectId = req.params.id;
-    const project = await Project.findById(projectId).populate('images'); // Populates the images field with image details
-
+    const project = await Project.findById(projectId)
+    .populate('labels')
+    .populate('images'); // Populates the images field with image details
+    
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
@@ -67,9 +69,9 @@ app.get('/projects/:id', async (req, res) => {
 });
 
 // Create a new project and associate uploaded images
-app.post('/projects', upload.array('files', 10), async (req, res) => {  
+app.post('/projects', upload.array('files', 10), async (req, res) => {
   try {
-    const { name, description, labels } = req.body;
+    const { name, description, labels } = req.body; // Extract labels from body
 
     // Create project
     const project = new Project({ name, description });
@@ -88,13 +90,11 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
 
     // Add images to the project
     project.images = images.map((image) => image._id);
-    await project.save();
 
     // Handle labels
     if (labels && labels.length > 0) {
       const labelIds = await Promise.all(
         labels.map(async (labelId) => {
-          // Check if the label exists, if not, throw an error or handle accordingly
           const label = await Label.findById(labelId);
           if (!label) {
             throw new Error(`Label with ID ${labelId} not found`);
@@ -107,12 +107,15 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
       project.labels = labelIds;
     }
 
-    res.json({ message: 'Project and images saved successfully' });
+    await project.save();
+    
+    res.json({ message: 'Project and images saved successfully', project });
   } catch (error) {
     console.error('Upload Error: ', error);
-    res.status(500).json({ message: 'Error uploading images', error });
+    res.status(500).json({ message: 'Error uploading project', error });
   }
 });
+
 
 app.get("/getUsers", (req, res) => {
   res

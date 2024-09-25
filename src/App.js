@@ -5,6 +5,7 @@ import Register from "./Pages/Register";
 import Home from "./Pages/Home";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./utils/httpClient";
+import ProjectDetail from "./Pages/ProjectDetail";
 
 const router = createBrowserRouter([
   {
@@ -14,6 +15,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <Home />,
+      },
+      {
+        path: "/project/:id",
+        element: <ProjectDetail />,
       },
       {
         path: "/sign-in",

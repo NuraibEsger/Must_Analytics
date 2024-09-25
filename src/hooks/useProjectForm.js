@@ -23,7 +23,7 @@ export const useProjectForm = (toggleModal) => {
     initialValues: {
       name: "",
       description: "",
-      labelId: null,
+      labels: [],
       files: [],
     },
     validationSchema: projectSchema,
@@ -32,9 +32,14 @@ export const useProjectForm = (toggleModal) => {
       formData.append("name", values.name);
       formData.append("description", values.description);
 
-      values.labelId.forEach((labelId) => {
-        formData.append("labelId", labelId);
+      console.log(formik.values.labelId);
+      
+      values.labels.forEach((labelId) => {
+        formData.append("labels", labelId);
       });
+
+      console.log(formData.get('labelId'));
+      
 
       Array.from(files).forEach((file) => {
         formData.append("files", file);
