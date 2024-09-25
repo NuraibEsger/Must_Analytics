@@ -1,30 +1,46 @@
-import React from "react";
-import { getProjectsById } from "../services/projectService";
+import React, { useState } from "react";
 import { useParams } from "react-router-dom";
-import ErrorBlock from "../components/ErrorBlock";
 import { useQuery } from "@tanstack/react-query";
+import { getProjectsById } from "../services/projectService";
+import ErrorBlock from "../components/ErrorBlock";
+import Modal from "../components/Modal";
+import Select from "react-select";
+import { getLabels } from "../services/labelService";
 
 export default function ProjectDetail() {
   const params = useParams();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState(4);
+  const [selectedLabels, setSelectedLabels] = useState([]);
 
-  const { data, isPending, isError, error } = useQuery({
+  // Fetch the project by ID
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["Projects", params.id],
-    queryFn: () => getProjectsById(params.id), // Pass the project ID directly
+    queryFn: () => getProjectsById(params.id),
   });
+
+  // Fetch labels for filter
+  const { data: labelsData } = useQuery({
+    queryKey: ["labels"],
+    queryFn: getLabels,
+  });
+
+  // Toggle modal visibility
+  const toggleModal = () => setIsModalOpen(!isModalOpen);
 
   let content;
 
-  if (isPending) {
+  if (isLoading) {
     content = (
-      <div className="flex justify-center">
-        <p>Fetching project data...</p>
+      <div className="flex justify-center py-10">
+        <p className="text-lg text-gray-700">Loading project data...</p>
       </div>
     );
   }
 
   if (isError) {
     content = (
-      <div className="center">
+      <div className="py-10">
         <ErrorBlock
           title="Failed to load project"
           message={
@@ -36,40 +52,112 @@ export default function ProjectDetail() {
     );
   }
 
+  console.log(data);
+  
+
   if (data) {
-    const project = data.data; // Assuming the API returns { data: project }
+    const project = data.data;
+
+    // Filter images by selected labels if any
+    const filteredImages = project.images.filter((image) =>
+      selectedLabels.length
+        ? image.labels.some((label) => selectedLabels.includes(label._id))
+        : true
+    );
+
+    // Label options for search
+    const labelOptions = labelsData?.data.map((label) => ({
+      value: label._id,
+      label: label.name,
+    }));
 
     content = (
-      <div>
-        <h1>{project.name}</h1>
-        <p>{project.description}</p>
+      <div className="flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg">
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
+          <div className="flex gap-3">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+              Export
+            </button>
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+              Upload Data
+            </button>
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+              onClick={toggleModal}
+            >
+              Edit
+            </button>
+          </div>
+        </div>
+        <p className="text-gray-600">{project.description}</p>
 
-        {project.images && project.images.length > 0 && (
-          <div>
-            <h3>Images:</h3>
-            {project.images.map((image) => (
-              <img key={image._id} src={image.filePath} alt={image.fileName} />
-            ))}
-          </div>
-        )}
-        {project.labels && project.labels.length > 0 && (
-          <div>
-            <h3>Labels:</h3>
-            {project.labels.map((label) => (
-              <span
-                key={label._id}
-                style={{
-                  backgroundColor: label.color,
-                  padding: "4px",
-                  color: "#fff",
-                  marginRight: "5px",
-                }}
-              >
-                {label.name}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* Columns selection */}
+        <div className="flex items-center gap-4">
+          <label className="text-gray-700 font-semibold">Columns:</label>
+          {[1, 2, 3, 4].map((num) => (
+            <button
+              key={num}
+              className={`px-4 py-2 rounded-md transition ${
+                selectedColumns === num
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-800 hover:bg-blue-100"
+              }`}
+              onClick={() => setSelectedColumns(num)}
+            >
+              {num}
+            </button>
+          ))}
+        </div>
+
+        {/* Search and Label Filter */}
+        <div className="flex items-center gap-4">
+          <label className="text-gray-700 font-semibold">Search Label:</label>
+          <Select
+            isMulti
+            name="labels"
+            options={labelOptions}
+            className="basic-multi-select w-full"
+            classNamePrefix="select"
+            value={labelOptions?.filter((option) =>
+              selectedLabels.includes(option.value)
+            )}
+            onChange={(selectedOptions) =>
+              setSelectedLabels(
+                selectedOptions
+                  ? selectedOptions.map((option) => option.value)
+                  : []
+              )
+            }
+            placeholder="Search Labels"
+          />
+        </div>
+            {console.log(data)}
+        {/* Images Row */}
+        <div
+          className={`flex flex-wrap gap-4 justify-center items-center`}
+          style={{
+            flexDirection: "row",
+            justifyContent: "flex-start",
+          }}
+        >
+          {filteredImages.map((image) => (
+            <div
+              key={image._id}
+              className={`w-1/${selectedColumns} bg-gray-200 rounded-lg overflow-hidden shadow`}
+              style={{ flexBasis: `${100 / selectedColumns}%` }}
+            >
+              <img
+                src={`http://localhost:3001/` + image.filePath}
+                alt={image.fileName}
+                className="w-full h-48 object-cover"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Modal */}
+        <Modal isOpen={isModalOpen} toggleModal={toggleModal} />
       </div>
     );
   }

@@ -6,20 +6,16 @@ const cors = require("cors");
 const multer = require("multer");
 const { Project, Image, Label } = require("./mongodb"); // Import the new models
 const fs = require('fs');
-
 const app = express();
 
 app.use(
-  cors({
-    origin: "http://localhost:3000",
-    methods: "GET,POST,PUT,DELETE",
-    credentials: true,
-  })
+  cors()
 );
 app.use(express.json());
 app.set("view engine", "hbs");
 app.set("views", path.join(__dirname, '../templates'));
 app.use(express.urlencoded({ extended: false }));
+app.use(express.static('/public/'));
 
 // Multer storage setup
 const storage = multer.diskStorage({
