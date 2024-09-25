@@ -1,6 +1,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getProjects } from "../services/projectService";
+import { Link } from "react-router-dom";
 
 const Card = () => {
   const {
@@ -25,13 +26,11 @@ const Card = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 px-4 md:px-6">
-      {projects.data.map((project) => (
-        <div key={project._id} className="flex justify-center">
-          <div className="flex justify-center col-span-1 mb-4 md:mb-6 transition-transform transform hover:-translate-y-1">
-            <div
-              //   href={`/projects/${project.id}`}
-              className="p-6 h-full flex flex-row items-center transition duration-300 rounded-lg shadow-lg bg-white hover:shadow-2xl"
-            >
+    {projects.data.map((project) => (
+      <div key={project._id} className="flex justify-center">
+        <div className="flex justify-center col-span-1 mb-4 md:mb-6 transition-transform transform hover:-translate-y-1">
+          <Link to={`/projects/${project._id}`}>
+            <div className="p-6 h-full flex flex-row items-center transition duration-300 rounded-lg shadow-lg bg-white hover:shadow-2xl">
               {/* Icon Section */}
               <div className="flex-shrink-0 bg-purple-500 text-white rounded-full p-3 mr-6">
                 <svg
@@ -54,17 +53,6 @@ const Card = () => {
                   </p>
                 </div>
 
-                {/* Tags */}
-                <div className="flex flex-wrap items-center mb-4">
-                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full mr-2">
-                    Machine Learning
-                  </span>
-                  <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                    AI
-                  </span>
-                </div>
-
-                {/* Footer */}
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center">
                     <div className="bg-purple-500 text-white rounded-full h-7 w-7 flex items-center justify-center font-bold">
@@ -73,21 +61,15 @@ const Card = () => {
                   </div>
                   <small className="text-gray-500 flex items-center">
                     {new Date(project.created_at).toLocaleDateString()}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      className="inline-block ml-1 w-4 h-4"
-                    >
-                      <path d="M19,19H5V8H19M16,1V3H8V1H6V3H5C3.89,3 3,3.89 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.89 20.1,3 19,3H18V1M17,12H12V17H17V12Z" />
-                    </svg>
                   </small>
                 </div>
               </div>
             </div>
-          </div>
+          </Link>
         </div>
-      ))}
-    </div>
+      </div>
+    ))}
+  </div>
   );
 };
 
