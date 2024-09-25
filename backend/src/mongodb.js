@@ -29,6 +29,8 @@ const LabelSchema = new mongoose.Schema({
     type: String, // Hex code or any string representation of color
     required: true,
   },
+
+  projects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }]
 });
 
 // Project Schema with one-to-many relationship to Image
@@ -42,7 +44,7 @@ const ProjectSchema = new mongoose.Schema({
     required: true,
   },
   images: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Image' }],
-  label: { type: mongoose.Schema.Types.ObjectId, ref: 'Label' },
+  labels: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Label' }],
 
   created_at : { type: Date, required: true, default: Date.now }
 });

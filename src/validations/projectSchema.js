@@ -9,5 +9,9 @@ export const projectSchema = Yup.object().shape({
     .min(10, "Description is too short!")
     .max(500, "Description is too long!"),
 
+  labelId: Yup.array()
+    .of(Yup.string().required("Label ID is required"))
+    .min(1, "At least one label is required"),
+
   files: Yup.mixed().required("File is required"),
 });

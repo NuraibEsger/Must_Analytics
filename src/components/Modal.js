@@ -114,18 +114,19 @@ export default function Modal({ isOpen, toggleModal }) {
               classNamePrefix="select"
               styles={customStyles} // Apply custom styles to options
               value={labelOptions.filter(
-                (option) => formik.values.labels?.includes(option.label) // Filter based on formik values
+                (option) => formik.values.labelId?.includes(option.value) // Filter based on formik values
               )}
               onChange={(selectedOptions) =>
                 formik.setFieldValue(
-                  "labels",
-                  selectedOptions
-                    ? selectedOptions.map((option) => option.label)
-                    : []
+                  "labelId",
+                  selectedOptions ? selectedOptions.map((option) => option.value) : []
                 )
               }
               placeholder="Add labels"
             />
+            {formik.errors.labelId && formik.touched.labelId && (
+              <span style={{ color: "red" }}>{formik.errors.labelId}</span>
+            )}
             {/* Button next to the input */}
             <button
               type="button"

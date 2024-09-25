@@ -69,7 +69,7 @@ app.get('/projects/:id', async (req, res) => {
 // Create a new project and associate uploaded images
 app.post('/projects', upload.array('files', 10), async (req, res) => {  
   try {
-    const { name, description } = req.body;
+    const { name, description, labels } = req.body;
 
     // Create project
     const project = new Project({ name, description });
@@ -84,13 +84,28 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
       return image.save();
     });
 
-    console.log('Saving images...');
     const images = await Promise.all(imagePromises);
-    console.log('Images saved:', images);
 
     // Add images to the project
     project.images = images.map((image) => image._id);
     await project.save();
+
+    // Handle labels
+    if (labels && labels.length > 0) {
+      const labelIds = await Promise.all(
+        labels.map(async (labelId) => {
+          // Check if the label exists, if not, throw an error or handle accordingly
+          const label = await Label.findById(labelId);
+          if (!label) {
+            throw new Error(`Label with ID ${labelId} not found`);
+          }
+          return label._id;
+        })
+      );
+
+      // Add labels to the project
+      project.labels = labelIds;
+    }
 
     res.json({ message: 'Project and images saved successfully' });
   } catch (error) {

@@ -23,6 +23,7 @@ export const useProjectForm = (toggleModal) => {
     initialValues: {
       name: "",
       description: "",
+      labelId: null,
       files: [],
     },
     validationSchema: projectSchema,
@@ -30,6 +31,10 @@ export const useProjectForm = (toggleModal) => {
       const formData = new FormData();
       formData.append("name", values.name);
       formData.append("description", values.description);
+
+      values.labelId.forEach((labelId) => {
+        formData.append("labelId", labelId);
+      });
 
       Array.from(files).forEach((file) => {
         formData.append("files", file);
