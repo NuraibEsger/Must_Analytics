@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getProjectsById } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
@@ -50,10 +50,7 @@ export default function ProjectDetail() {
         />
       </div>
     );
-  }
-
-  console.log(data);
-  
+  }  
 
   if (data) {
     const project = data.data;
@@ -132,7 +129,6 @@ export default function ProjectDetail() {
             placeholder="Search Labels"
           />
         </div>
-            {console.log(data)}
         {/* Images Row */}
         <div
           className={`flex flex-wrap gap-4 justify-center items-center`}
@@ -147,11 +143,13 @@ export default function ProjectDetail() {
               className={`w-1/${selectedColumns} bg-gray-200 rounded-lg overflow-hidden shadow`}
               style={{ flexBasis: `${100 / selectedColumns}%` }}
             >
-              <img
-                src={`http://localhost:3001/` + image.filePath}
-                alt={image.fileName}
-                className="w-full h-48 object-cover"
-              />
+              <Link to={`/edit-image/${image._id}`}>
+                <img
+                  src={`http://localhost:3001/` + image.filePath}
+                  alt={image.fileName}
+                  className="w-full h-48 object-cover"
+                />
+              </Link>
             </div>
           ))}
         </div>

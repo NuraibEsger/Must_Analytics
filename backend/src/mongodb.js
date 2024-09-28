@@ -17,6 +17,21 @@ const ImageSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  annotations: [
+    {
+      id: { type: Number, required: true },
+      name: { type: String, required: true },
+      coordinates: [
+        {
+          type: [[Number]], // This is an array of arrays of numbers for lat/lng
+        },
+      ],
+      bounds: {
+        southWest: { type: [Number] }, // Array [lat, lng]
+        northEast: { type: [Number] }, // Array [lat, lng]
+      },
+    },
+  ],
 });
 
 /// Label Schema
