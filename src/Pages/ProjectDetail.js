@@ -6,17 +6,21 @@ import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
 import Select from "react-select";
 import { getLabels } from "../services/labelService";
+import { exportProject } from "../services/projectService";
 
 export default function ProjectDetail() {
   const params = useParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [selectedLabels, setSelectedLabels] = useState([]);
+  
+  // Assuming you have a way to get the token, for example, from context or local storage
+  const token = localStorage.getItem("token"); // Replace with your token management solution
 
   // Fetch the project by ID
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["Projects", params.id],
-    queryFn: () => getProjectsById(params.id),
+    queryFn: () => getProjectsById(params.id, token), // Pass token here
   });
 
   // Fetch labels for filter
@@ -27,6 +31,16 @@ export default function ProjectDetail() {
 
   // Toggle modal visibility
   const toggleModal = () => setIsModalOpen(!isModalOpen);
+
+  // Export button click handler
+  const handleExport = async () => {
+    try {
+      await exportProject(params.id, token); // Pass token here
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export project data. Please try again.");
+    }
+  };
 
   let content;
 
@@ -73,7 +87,10 @@ export default function ProjectDetail() {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
           <div className="flex gap-3">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+              onClick={handleExport} // Call the export handler
+            >
               Export
             </button>
             <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">

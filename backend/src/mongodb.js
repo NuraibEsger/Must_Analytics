@@ -69,5 +69,14 @@ const Project = mongoose.model('Project', ProjectSchema);
 const Image = mongoose.model('Image', ImageSchema);
 const Label = mongoose.model('Label', LabelSchema);
 
+const getProjectById = async (projectId) => {
+  try {
+    const project = await Project.findById(projectId).populate("images").populate("labels");
+    return project;
+  } catch (error) {
+    console.error("Error fetching project by ID:", error);
+    throw error; // Re-throw the error to handle it in the route
+  }
+};
 
-module.exports = { Project, Image, Label };
+module.exports = { Project, Image, Label, getProjectById };

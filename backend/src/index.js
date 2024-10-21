@@ -51,6 +51,19 @@ app.get('/projects', async (req, res) => {
   }
 });
 
+// Export projcet
+app.get("/projects/:id/export", async (req, res) => {
+  const projectId = req.params.id;
+  console.log('Salam')
+  // Fetch project data from database
+  const projectData = await collection.getProjectById(projectId);
+
+  // Send the data as a downloadable file (JSON format here)
+  res.setHeader("Content-Disposition", `attachment; filename=project_${projectId}_data.json`);
+  res.setHeader("Content-Type", "application/json");
+  res.send(JSON.stringify(projectData)); // You can also send CSV, XLSX, etc.
+});
+
 // Get a project by ID along with associated images
 app.get('/project/:id', async (req, res) => {
   try {
@@ -82,7 +95,6 @@ app.get("/image/:id", async (req, res) => {
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
-
     // Return the image data
     res.json(image);
   } catch (error) {
@@ -139,21 +151,65 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
   }
 });
 
+// Update an existing project
+app.put('/projects/:id', upload.array('files', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, labels } = req.body;
+
+    // Find the project by ID
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Update project fields
+    project.name = name || project.name;
+    project.description = description || project.description;
+
+    // Handle new files (if any were uploaded)
+    if (req.files && req.files.length > 0) {
+      const newImages = req.files.map((file) => ({
+        fileName: file.originalname,
+        filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+      }));
+
+      // Save the new images to the database
+      const imagePromises = newImages.map(image => new Image(image).save());
+      const savedImages = await Promise.all(imagePromises);
+
+      // Append the new image IDs to the project's images array
+      project.images = [...project.images, ...savedImages.map(img => img._id)];
+    }
+
+    // Handle labels if they are provided
+    if (labels && labels.length > 0) {
+      const labelIds = await Promise.all(
+        labels.map(async (labelId) => {
+          const label = await Label.findById(labelId);
+          if (!label) {
+            throw new Error(`Label with ID ${labelId} not found`);
+          }
+          return label._id;
+        })
+      );
+
+      // Update labels for the project
+      project.labels = labelIds;
+    }
+
+    // Save the updated project
+    const updatedProject = await project.save();
+
+    res.json({ message: 'Project updated successfully', project: updatedProject });
+  } catch (error) {
+    console.error('Error updating project:', error);
+    res.status(500).json({ message: 'Error updating project', error });
+  }
+});
 
 app.get("/getUsers", (req, res) => {
   res
-    .json(
-      UserModel.find({}).then(function (users) {
-        res.json(users);
-      })
-    )
-    .catch(function (err) {
-      console.log(err);
-    });
-});
-
-app.get("/signUp", async (req, res) => {
-  await res
     .json(
       UserModel.find({}).then(function (users) {
         res.json(users);
@@ -201,7 +257,7 @@ app.post("/image/:id/annotations", async (req, res) => {
   const { id } = req.params;
   const { annotations } = req.body;
 
-  console.log("Received annotations:", JSON.stringify(annotations, null, 2));
+  // console.log("Received annotations:", JSON.stringify(annotations, null, 2));
   
   try {
     // Find the image by ID and update its annotations

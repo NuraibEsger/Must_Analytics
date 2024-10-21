@@ -2,7 +2,6 @@ import { useState } from "react";
 import Modal from "../components/Modal";
 import Card from "../components/Card";
 
-
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -10,41 +9,43 @@ export default function Home() {
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
   };
+
   return (
-    <div className="flex flex-col gap-5">
-      <div className=" w-full flex justify-center px-3 pt-12 md:px-6">
-        <div className="relative overflow-hidden p-6 md:py-12 rounded-lg bg-purple-700 text-white w-full max-w-4xl">
-          <div className="flex flex-wrap relative z-10 items-center justify-between">
+    <div className="flex flex-col gap-8 p-4 md:p-6">
+      <div className="w-full flex justify-center pt-12">
+        <div className="relative overflow-hidden p-6 md:py-12 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white w-full max-w-4xl shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between">
             {/* Title and Description */}
-            <div className="flex mb-3 sm:mb-0 md:pl-12 w-full md:w-auto">
-              <div>
-                <h1 className="font-black text-xl md:text-3xl">
-                  Image Classification
-                </h1>
-                <p className="mb-0 mt-1 md:mt-5 font-light text-sm leading-tight">
-                  Localization &amp; Segmentation
-                </p>
-              </div>
+            <div className="mb-4 md:mb-0">
+              <h1 className="font-extrabold text-2xl md:text-4xl">
+                Image Classification
+              </h1>
+              <p className="mt-2 md:mt-4 text-sm md:text-base">
+                Advanced Localization &amp; Segmentation
+              </p>
             </div>
 
-            {/* Button */}
-            <div className="flex justify-center sm:justify-start w-full sm:w-auto md:w-1/4">
+            {/* Add Project Button */}
+            <div className="flex justify-center">
               <button
                 type="button"
-                className="bg-transparent text-white border border-white rounded-full px-4 py-2 flex items-center hover:bg-white hover:text-purple-700 transition"
+                className="flex items-center bg-white text-purple-700 border border-transparent rounded-full px-5 py-2 shadow-md hover:bg-purple-100 transition duration-300"
                 onClick={toggleModal}
+                aria-label="Add Project"
+                title="Add a new project"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  role="img"
+                  className="h-5 w-5 mr-2"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
                   aria-hidden="true"
-                  className="w-5 h-5 mr-2"
                 >
                   <path
-                    fill="currentColor"
-                    d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z"
-                  ></path>
+                    fillRule="evenodd"
+                    d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 Add Project
               </button>
@@ -54,9 +55,9 @@ export default function Home() {
         {/* Modal Component */}
         <Modal isOpen={isModalOpen} toggleModal={toggleModal} />
       </div>
-      
-        {/* Render Cards 3x3 */}
-        <Card />
+
+      {/* Render Cards */}
+      <Card />
     </div>
   );
 }

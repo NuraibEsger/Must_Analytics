@@ -6,19 +6,19 @@ export default function Register() {
   const navigate = useNavigate();
 
   // Function to handle sending email
-  const handleSendEmail = () => {
-    console.log("Send email clicked!");
-    // You can add your email-sending logic here
+  const handleRegister = () => {
+    console.log("Register clicked!");
+    // You can add your registration logic here
   };
 
   return (
     <div className="flex w-full h-screen">
       <div className="w-full flex items-center justify-center lg:w-1/2 bg-white">
         <Form
-          title="Get started with MustSoftware"
-          emailOnly={true} // Only show the email input
-          buttonText="Send Email"
-          buttonAction={handleSendEmail} // Send email logic
+          title="Create an Account"
+          emailOnly={false} // Show email, password, and confirm password
+          buttonText="Register"
+          buttonAction={handleRegister} // Register logic
           secondButtonText="Go Back"
           secondButtonAction={() => navigate('/sign-in')} // Go back action
         />

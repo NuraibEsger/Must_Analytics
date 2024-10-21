@@ -1,8 +1,14 @@
 import { httpClient } from "../utils/httpClient";
 
-export const getImageById = (id) => {
-    
-  return httpClient.get(`/image/${id}`);
+export const getImageById = async (id) => {
+  try {
+    const response = await httpClient.get(`/image/${id}`);
+    console.log('getImageById response:', response);
+    return response;
+  } catch (error) {
+    console.error("Error fetching image by ID:", error);
+    throw error;
+  }
 };
 
 export const saveAnnotations = async (imageId, annotations) => {
