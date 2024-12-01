@@ -22,7 +22,7 @@ const router = createBrowserRouter([
         element: <ProjectDetail />,
       },
       {
-        path: "/edit-image/:id", // Specify the component to be used
+        path: "/edit-image/:id",
         element: <ImageEdit />,
       },
       {

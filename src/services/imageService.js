@@ -3,8 +3,7 @@ import { httpClient } from "../utils/httpClient";
 export const getImageById = async (id) => {
   try {
     const response = await httpClient.get(`/image/${id}`);
-    console.log('getImageById response:', response);
-    return response;
+    return response.data;
   } catch (error) {
     console.error("Error fetching image by ID:", error);
     throw error;

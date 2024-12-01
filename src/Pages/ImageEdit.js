@@ -1,225 +1,260 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
-  Stage,
-  Layer,
-  Rect,
-  Image as KonvaImage,
-  Line as KonvaLine,
-} from "react-konva";
-import useImage from "use-image";
+  MapContainer,
+  ImageOverlay,
+  FeatureGroup,
+  Polygon,
+  Rectangle,
+} from "react-leaflet";
+import { EditControl } from "react-leaflet-draw";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import "leaflet-draw/dist/leaflet.draw.css";
 import { useParams } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
 import { getImageById, saveAnnotations } from "../services/imageService";
-import {
-  FiEye,
-  FiTrash,
-  FiBox,
-  FiPlus,
-  FiChevronLeft,
-  FiChevronRight,
-} from "react-icons/fi";
-import { toast, ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { FiEye, FiTrash, FiBox } from "react-icons/fi";
 
 export default function ImageEdit() {
   const { id } = useParams();
+  const featureGroupRef = useRef(null);
+
+  // State variables
   const [annotations, setAnnotations] = useState([]);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [image, setImage] = useState(null);
-  const [newShape, setNewShape] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Fetch image and annotations from the backend
-  const { data, isLoading, isError, error } = useQuery({
-    queryKey: ["Images", id],
-    queryFn: () => getImageById(id),
-    onSuccess: (data) => {
-      console.log('Fetched data onSuccess:', data);
-      setAnnotations(data?.data?.annotations || []);
-      setImage(data?.data?.filePath);
-      setIsDataLoaded(true);
-    },
-  });
-  
-  // Debugging Loading and Error states
-  
-
-  const mutation = useMutation({
-    mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
-    onSuccess: (data) => {
-      console.log("Annotations saved successfully!", data);
-    },
-    onError: () => {
-      toast.error("Error saving annotations.");
-    },
-  });
-
-  // Load the image from the server
-  const [img, imgStatus] = useImage(
-    image ? `http://localhost:3001/${image}` : null,
-    "Anonymous"
-  );
-
+  // Fetch image and annotations
   useEffect(() => {
-    if (imgStatus === "loaded") {
-      console.log("Image loaded successfully:", image);
-    } else if (imgStatus === "failed") {
-      console.error("Image failed to load. Please check the URL:", image);
-    }
-  }, [imgStatus, image]);
+    const fetchImage = async () => {
+      try {
+        const response = await getImageById(id);
+        console.log("Fetched data:", response);
 
-  if (isLoading) {
-    console.log('Loading image...');
-  }
-  
-  if (isError) {
-    console.error('Error fetching image:', error);
-    return <div>Error loading image.</div>;
-  }
+        // Parse annotations
+        if (response?.annotations) {
+          const parsedAnnotations = response.annotations.map((annotation) => ({
+            ...annotation,
+            bounds: annotation.bounds
+              ? {
+                  southWest: annotation.bounds.southWest,
+                  northEast: annotation.bounds.northEast,
+                }
+              : undefined,
+            coordinates: annotation.coordinates || [],
+          }));
+          console.log("Parsed annotations:", parsedAnnotations);
+          setAnnotations(parsedAnnotations);
+        }
 
-  // Handle new shape creation (polygon or rectangle)
-  const handleShapeCreation = (shapeType, pointsOrBounds) => {
-    const newAnnotation = {
-      id: Date.now(),
-      name:
-        shapeType === "polygon"
-          ? `Polygon ${annotations.length + 1}`
-          : `Rectangle`,
-      coordinates: shapeType === "polygon" ? pointsOrBounds : undefined,
-      bounds: shapeType === "rectangle" ? pointsOrBounds : undefined,
+        setImage(response);
+      } catch (err) {
+        console.error("Error fetching image:", err);
+        setError(err);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    const updatedAnnotations = [newAnnotation, ...annotations];
-    setAnnotations(updatedAnnotations);
-    mutation.mutate(updatedAnnotations);
-  };
 
-  const handlePolygonCreation = (points) => {
-    handleShapeCreation("polygon", points);
-  };
+    fetchImage();
+  }, [id]);
 
-  const handleRectangleCreation = (bounds) => {
-    handleShapeCreation("rectangle", bounds);
-  };
+  // Handle new shapes
+  const handleCreated = (e) => {
+    const { layerType, layer } = e;
+    let newAnnotation;
 
-  // Handle annotation deletion
-  const removeAnnotation = (id) => {
-    if (window.confirm("Are you sure you want to delete this annotation?")) {
-      const updatedAnnotations = annotations.filter(
-        (annotation) => annotation.id !== id
-      );
-      setAnnotations(updatedAnnotations);
-      mutation.mutate(updatedAnnotations);
+    if (layerType === "polygon") {
+      const coordinates = layer
+        .getLatLngs()
+        .map((latLngs) => latLngs.map(({ lat, lng }) => [lat, lng]));
+      newAnnotation = { id: Date.now(), name: "Polygon", coordinates };
+    } else if (layerType === "rectangle") {
+      const bounds = layer.getBounds();
+      const simplifiedBounds = {
+        southWest: [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
+        northEast: [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
+      };
+      newAnnotation = {
+        id: Date.now(),
+        name: "Rectangle",
+        bounds: simplifiedBounds,
+      };
     }
+
+    const updatedAnnotations = [...annotations, newAnnotation];
+    setAnnotations(updatedAnnotations);
+
+    // Persist updated annotations to the backend
+    saveAnnotations(id, updatedAnnotations)
+      .then(() => console.log("Annotations saved successfully!"))
+      .catch((err) => console.error("Error saving annotations:", err));
   };
 
-  if (isLoading) {
-    return <div>Loading image...</div>;
-  }
+  const handleEdited = (e) => {
+    const { layers } = e; // Get the edited layers
+    const updatedAnnotations = [...annotations];
 
-  if (isError) {
-    return (
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar />
+    layers.eachLayer((layer) => {
+      // Check if the layer is a Rectangle (bounds) or Polygon (coordinates)
+      if (layer instanceof L.Rectangle) {
+        const bounds = layer.getBounds();
+        const updatedBounds = {
+          southWest: [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
+          northEast: [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
+        };
+
+        // Find and update the corresponding annotation
+        const annotationIndex = updatedAnnotations.findIndex(
+          (annotation) =>
+            annotation.bounds && // Ensure the annotation has bounds
+            annotation.bounds.southWest[0] === bounds.getSouthWest().lat &&
+            annotation.bounds.southWest[1] === bounds.getSouthWest().lng
+        );
+
+        if (annotationIndex !== -1) {
+          updatedAnnotations[annotationIndex].bounds = updatedBounds;
+        }
+      } else if (layer instanceof L.Polygon) {
+        const coordinates = layer
+          .getLatLngs()
+          .map((latLngs) => latLngs.map(({ lat, lng }) => [lat, lng]));
+
+        // Find and update the corresponding annotation
+        const annotationIndex = updatedAnnotations.findIndex(
+          (annotation) =>
+            annotation.coordinates &&
+            JSON.stringify(annotation.coordinates) ===
+              JSON.stringify(coordinates)
+        );
+
+        if (annotationIndex !== -1) {
+          updatedAnnotations[annotationIndex].coordinates = coordinates;
+        }
+      }
+    });
+
+    // Update the annotations state
+    setAnnotations(updatedAnnotations);
+
+    // Save the updated annotations to the backend
+    saveAnnotations(id, updatedAnnotations)
+      .then(() => console.log("Edited annotations saved successfully!"))
+      .catch((err) => console.error("Error saving edited annotations:", err));
+  };
+
+  // Remove annotations
+  const removeAnnotation = (annotationId) => {
+    const updatedAnnotations = annotations.filter(
+      (annotation) => annotation.id !== annotationId
     );
-  }
+    setAnnotations(updatedAnnotations);
+
+    // Persist updated annotations to the backend
+    saveAnnotations(id, updatedAnnotations)
+      .then(() => console.log("Annotations updated successfully!"))
+      .catch((err) => console.error("Error updating annotations:", err));
+  };
+
+  if (isLoading) return <div>Loading image...</div>;
+  if (isError)
+    return <div>Error loading image: {error?.message || "Unknown error"}</div>;
+
+  const bounds = [
+    [0, 0],
+    [500, 500],
+  ];
 
   return (
-    <div className="flex h-screen w-screen relative">
+    <div className="flex h-screen">
       {/* Annotations Panel */}
-      <div
-        className={`absolute top-0 left-0 h-full bg-white shadow-lg p-4 overflow-y-auto transition-transform duration-300 ${
-          isSidebarOpen ? "w-80" : "w-20"
-        }`}
-      >
-        <div className="flex items-center justify-between mb-4">
-          {isSidebarOpen && (
-            <h3 className="text-lg font-semibold">
-              Annotations ({annotations.length})
-            </h3>
-          )}
-          <button
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            aria-label={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-          >
-            {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
+      <div className="w-72 bg-white shadow-lg p-4 overflow-y-auto">
+        <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
+          Annotations ({annotations.length})
+          <button className="text-blue-500 hover:text-blue-700 flex items-center space-x-1">
+            <FiBox />
+            <span>Add</span>
           </button>
-        </div>
-        {isSidebarOpen && (
-          <>
-            <button
-              className="flex items-center mb-4 bg-blue-500 text-white px-3 py-2 rounded"
-              onClick={() => {
-                /* Add annotation logic */
-              }}
+        </h3>
+        <ul className="space-y-2">
+          {annotations.map((annotation) => (
+            <li
+              key={annotation.id}
+              className="flex justify-between items-center bg-gray-50 p-2 rounded"
             >
-              <FiPlus className="mr-2" /> Add Annotation
-            </button>
-            <ul className="space-y-2">
-              {annotations.map((annotation) => (
-                <li
-                  key={annotation.id}
-                  className="flex justify-between items-center bg-gray-50 p-2 rounded"
+              <div className="flex items-center space-x-2">
+                <FiBox />
+                <span>{annotation.name}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button className="text-gray-500 hover:text-gray-700">
+                  <FiEye />
+                </button>
+                <button
+                  className="text-red-500 hover:text-red-700"
+                  onClick={() => removeAnnotation(annotation.id)}
                 >
-                  <div className="flex items-center space-x-2">
-                    <FiBox />
-                    <span>{annotation.name}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button className="text-gray-500">
-                      <FiEye />
-                    </button>
-                    <button
-                      className="text-red-500"
-                      onClick={() => removeAnnotation(annotation.id)}
-                    >
-                      <FiTrash />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
+                  <FiTrash />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {/* Image Canvas */}
-      <Stage width={window.innerWidth} height={window.innerHeight - 100}>
-        <Layer>
-          {/* Display image */}
-          {img && imgStatus === "loaded" && (
-            <KonvaImage image={img} width={img.width} height={img.height} />
-          )}
-
-          {/* Render saved annotations */}
+      {/* Map Container */}
+      <MapContainer
+        style={{ height: "100%", flex: 1 }}
+        center={[250, 250]}
+        zoom={1}
+        crs={L.CRS.Simple}
+      >
+        {image && (
+          <ImageOverlay
+            url={`http://localhost:3001/${image.filePath}`}
+            bounds={bounds}
+          />
+        )}
+        <FeatureGroup ref={featureGroupRef}>
           {annotations.map((annotation) => {
-            if (annotation.coordinates) {
+            if (annotation.coordinates && annotation.coordinates.length > 0) {
+              // Render Polygon if coordinates exist
               return (
-                <KonvaLine
+                <Polygon
                   key={annotation.id}
-                  points={annotation.coordinates.flat()}
-                  fill="rgba(0, 0, 255, 0.3)"
-                  stroke="blue"
-                  closed
+                  positions={annotation.coordinates}
                 />
               );
             } else if (annotation.bounds) {
-              const [x1, y1] = annotation.bounds[0];
-              const [x2, y2] = annotation.bounds[1];
+              // Render Rectangle if bounds exist
               return (
-                <Rect
+                <Rectangle
                   key={annotation.id}
-                  x={x1}
-                  y={y1}
-                  width={x2 - x1}
-                  height={y2 - y1}
-                  fill="rgba(255, 0, 0, 0.3)"
-                  stroke="red"
+                  bounds={[
+                    annotation.bounds.southWest,
+                    annotation.bounds.northEast,
+                  ]}
                 />
               );
             }
             return null;
           })}
-        </Layer>
-      </Stage>
+          <EditControl
+            position="topright"
+            onCreated={handleCreated}
+            onEdited={handleEdited}
+            draw={{
+              rectangle: true,
+              circle: false,
+              marker: false,
+              polygon: true,
+              circlemarker: false,
+            }}
+          />
+        </FeatureGroup>
+      </MapContainer>
     </div>
   );
 }

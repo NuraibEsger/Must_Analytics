@@ -7,14 +7,14 @@ import Modal from "../components/Modal";
 import Select from "react-select";
 import { getLabels } from "../services/labelService";
 import { exportProject } from "../services/projectService";
+import { FiUpload, FiEdit, FiDownload } from "react-icons/fi";
 
 export default function ProjectDetail() {
   const params = useParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [selectedLabels, setSelectedLabels] = useState([]);
-  
-  // Assuming you have a way to get the token, for example, from context or local storage
+
   const token = localStorage.getItem("token"); // Replace with your token management solution
 
   // Fetch the project by ID
@@ -29,10 +29,8 @@ export default function ProjectDetail() {
     queryFn: getLabels,
   });
 
-  // Toggle modal visibility
   const toggleModal = () => setIsModalOpen(!isModalOpen);
 
-  // Export button click handler
   const handleExport = async () => {
     try {
       await exportProject(params.id, token); // Pass token here
@@ -64,19 +62,17 @@ export default function ProjectDetail() {
         />
       </div>
     );
-  }  
+  }
 
   if (data) {
     const project = data.data;
 
-    // Filter images by selected labels if any
     const filteredImages = project.images.filter((image) =>
       selectedLabels.length
         ? image.labels.some((label) => selectedLabels.includes(label._id))
         : true
     );
 
-    // Label options for search
     const labelOptions = labelsData?.data.map((label) => ({
       value: label._id,
       label: label.name,
@@ -88,77 +84,79 @@ export default function ProjectDetail() {
           <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
           <div className="flex gap-3">
             <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-              onClick={handleExport} // Call the export handler
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+              onClick={handleExport}
             >
+              <FiDownload />
               Export
             </button>
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+            <button className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">
+              <FiUpload />
               Upload Data
             </button>
             <button
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
               onClick={toggleModal}
             >
+              <FiEdit />
               Edit
             </button>
           </div>
         </div>
         <p className="text-gray-600">{project.description}</p>
 
-        {/* Columns selection */}
-        <div className="flex items-center gap-4">
-          <label className="text-gray-700 font-semibold">Columns:</label>
-          {[1, 2, 3, 4].map((num) => (
-            <button
-              key={num}
-              className={`px-4 py-2 rounded-md transition ${
-                selectedColumns === num
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-800 hover:bg-blue-100"
-              }`}
-              onClick={() => setSelectedColumns(num)}
-            >
-              {num}
-            </button>
-          ))}
+        {/* Filters Section */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex items-center gap-4">
+            <label className="text-gray-700 font-semibold">Columns:</label>
+            {[1, 2, 3, 4].map((num) => (
+              <button
+                key={num}
+                className={`px-4 py-2 rounded-md transition ${
+                  selectedColumns === num
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-800 hover:bg-blue-100"
+                }`}
+                onClick={() => setSelectedColumns(num)}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-col gap-4 w-full lg:w-1/3">
+            <label className="text-gray-700 font-semibold">Search Label:</label>
+            <Select
+              isMulti
+              name="labels"
+              options={labelOptions}
+              className="basic-multi-select w-full"
+              classNamePrefix="select"
+              value={labelOptions?.filter((option) =>
+                selectedLabels.includes(option.value)
+              )}
+              onChange={(selectedOptions) =>
+                setSelectedLabels(
+                  selectedOptions
+                    ? selectedOptions.map((option) => option.value)
+                    : []
+                )
+              }
+              placeholder="Search Labels"
+            />
+          </div>
         </div>
 
-        {/* Search and Label Filter */}
-        <div className="flex items-center gap-4">
-          <label className="text-gray-700 font-semibold">Search Label:</label>
-          <Select
-            isMulti
-            name="labels"
-            options={labelOptions}
-            className="basic-multi-select w-full"
-            classNamePrefix="select"
-            value={labelOptions?.filter((option) =>
-              selectedLabels.includes(option.value)
-            )}
-            onChange={(selectedOptions) =>
-              setSelectedLabels(
-                selectedOptions
-                  ? selectedOptions.map((option) => option.value)
-                  : []
-              )
-            }
-            placeholder="Search Labels"
-          />
-        </div>
-        {/* Images Row */}
+        {/* Images Grid */}
         <div
-          className={`flex flex-wrap gap-4 justify-center items-center`}
+          className="grid gap-4"
           style={{
-            flexDirection: "row",
-            justifyContent: "flex-start",
+            gridTemplateColumns: `repeat(${selectedColumns}, minmax(0, 1fr))`,
           }}
         >
           {filteredImages.map((image) => (
             <div
               key={image._id}
-              className={`w-1/${selectedColumns} bg-gray-200 rounded-lg overflow-hidden shadow`}
-              style={{ flexBasis: `${100 / selectedColumns}%` }}
+              className="bg-gray-100 rounded-lg shadow overflow-hidden"
             >
               <Link to={`/edit-image/${image._id}`}>
                 <img

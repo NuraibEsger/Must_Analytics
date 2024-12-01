@@ -54,7 +54,6 @@ app.get('/projects', async (req, res) => {
 // Export projcet
 app.get("/projects/:id/export", async (req, res) => {
   const projectId = req.params.id;
-  console.log('Salam')
   // Fetch project data from database
   const projectData = await collection.getProjectById(projectId);
 
@@ -86,16 +85,10 @@ app.get('/project/:id', async (req, res) => {
 // Get image by ID
 app.get("/image/:id", async (req, res) => {
   try {
-    const imageId = req.params.id;
-
-    // Fetch the image by ID
-    const image = await Image.findById(imageId);
-
-    // Check if the image exists
+    const image = await Image.findById(req.params.id).lean(); // Use `.lean()` to get plain JSON objects
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
-    // Return the image data
     res.json(image);
   } catch (error) {
     console.error("Error fetching image:", error);
@@ -257,11 +250,12 @@ app.post("/image/:id/annotations", async (req, res) => {
   const { id } = req.params;
   const { annotations } = req.body;
 
-  // console.log("Received annotations:", JSON.stringify(annotations, null, 2));
-  
   try {
-    // Find the image by ID and update its annotations
-    const image = await Image.findByIdAndUpdate(id, { annotations }, { new: true });
+    const image = await Image.findByIdAndUpdate(
+      id,
+      { annotations },
+      { new: true }
+    );
 
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
@@ -273,6 +267,7 @@ app.post("/image/:id/annotations", async (req, res) => {
     res.status(500).json({ message: "Error saving annotations", error });
   }
 });
+
 
 //#endregion
 
