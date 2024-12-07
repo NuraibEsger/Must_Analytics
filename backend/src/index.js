@@ -73,8 +73,8 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: function (req, file, cb) {
-    return cb(null, `${Date.now()}_${file.originalname}`);
-  },
+    return cb(null, `${file.originalname}`);
+  },  
 });
 
 const upload = multer({storage});
@@ -246,13 +246,11 @@ app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), o
 
     const imagePromises = req.files.map(async (file) => {
       const lqipPath = await generateLQIP(file);
-
       const image = new Image({
         fileName: file.fileName,
-        filePath: file.filePath,
+        filePath: `images/${file.fileName}`,
         placeholder: lqipPath, // Save LQIP path
       });
-
       return image.save();
     });
 
