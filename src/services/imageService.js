@@ -12,6 +12,7 @@ export const getImageById = async (id) => {
 
 export const saveAnnotations = async (imageId, annotations) => {
   try {
+    console.log(annotations);
     return httpClient.post(`/image/${imageId}/annotations`, {
       annotations,
     });

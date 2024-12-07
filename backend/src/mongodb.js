@@ -22,7 +22,6 @@ const UserSchema = new mongoose.Schema({
 
 
 // Image Schema for storing uploaded images
-// Image Schema for storing uploaded images
 const ImageSchema = new mongoose.Schema({
   fileName: {
     type: String,

@@ -219,10 +219,12 @@ export default function ImageEdit() {
               <div className="flex items-center space-x-2">
                 <FiBox />
                 <select
-                  value={annotation.label || ""}
-                  onChange={(e) => handleLabelChange(annotation.id, e.target.value)}
+                  value={annotation.label || ""} // Set initial value to the current label
+                  onChange={(e) =>
+                    handleLabelChange(annotation.id, e.target.value)
+                  }
                 >
-                  <option value="">Select Label</option>
+                  <option value="">{annotation.label?.name || "Select Label"}</option>
                   {labels.map((label) => (
                     <option key={label._id} value={label._id}>
                       {label.name}
@@ -306,7 +308,7 @@ export default function ImageEdit() {
             }}
             edit={{
               edit: true,
-              remove: false
+              remove: false,
             }}
           />
         </FeatureGroup>
