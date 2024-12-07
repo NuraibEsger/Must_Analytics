@@ -4,8 +4,12 @@ const hbs = require("hbs");
 const collection = require("./mongodb");
 const cors = require("cors");
 const multer = require("multer");
-const { Project, Image, Label } = require("./mongodb"); // Import the new models
+const { User, Project, Image, Label } = require("./mongodb"); // Import the new models
 const fs = require('fs');
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+
+const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
 
 const app = express();
@@ -39,8 +43,36 @@ const storage = multer.diskStorage({
 
 const upload = multer({storage});
 
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  
+  // Check if the Authorization header is provided
+  if (!authHeader) {
+    return res.status(403).json({ message: "No token provided" });
+  }
+
+  // Extract the token from the 'Bearer <token>' format
+  const token = authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(403).json({ message: "Token not provided in the correct format" });
+  }
+
+  // Verify the token
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(500).json({ message: "Failed to authenticate token" });
+    }
+
+    // Attach user information to the request for use in other routes
+    req.userId = decoded.id;
+    next();
+  });
+};
+
+
 // Get all projects along with associated images
-app.get('/projects', async (req, res) => {
+app.get('/projects', verifyToken, async (req, res) => {
   try {
     const projects = await Project.find().populate('images'); // Populates the images field with image details
     
@@ -52,7 +84,7 @@ app.get('/projects', async (req, res) => {
 });
 
 // Export projcet
-app.get("/projects/:id/export", async (req, res) => {
+app.get("/projects/:id/export", verifyToken, async (req, res) => {
   const projectId = req.params.id;
   // Fetch project data from database
   const projectData = await collection.getProjectById(projectId);
@@ -64,7 +96,7 @@ app.get("/projects/:id/export", async (req, res) => {
 });
 
 // Get a project by ID along with associated images
-app.get('/project/:id', async (req, res) => {
+app.get('/project/:id', verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
     const project = await Project.findById(projectId)
@@ -85,7 +117,10 @@ app.get('/project/:id', async (req, res) => {
 // Get image by ID
 app.get("/image/:id", async (req, res) => {
   try {
-    const image = await Image.findById(req.params.id).lean(); // Use `.lean()` to get plain JSON objects
+    const image = await Image.findById(req.params.id)
+      .populate("annotations.label")
+      .lean(); // Use `.lean()` to get plain JSON objects
+      
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
@@ -97,7 +132,7 @@ app.get("/image/:id", async (req, res) => {
 });
 
 // Create a new project and associate uploaded images
-app.post('/projects', upload.array('files', 10), async (req, res) => {
+app.post('/projects', verifyToken, upload.array('files', 10), async (req, res) => {
   try {
     const { name, description, labels } = req.body; // Extract labels from body
 
@@ -144,8 +179,44 @@ app.post('/projects', upload.array('files', 10), async (req, res) => {
   }
 });
 
+app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), async (req, res) => {
+  const { id } = req.params;
+
+  console.log(id);
+
+  try {
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Save all uploaded images
+    const imagePromises = req.files.map((file) => {
+      const image = new Image({
+        fileName: file.originalname,
+        filePath: `images/${encodeURIComponent(file.filename)}`,
+      });
+      return image.save();
+    });
+
+
+    const images = await Promise.all(imagePromises);
+
+    // Add images to the project
+    project.images.push(...images.map((image) => image._id));
+    await project.save();
+
+    res.status(201).json({ message: "Images uploaded successfully", images });
+  } catch (error) {
+    console.error("Error uploading images:", error);
+    res.status(500).json({ message: "Error uploading images", error });
+  }
+});
+
+
+
 // Update an existing project
-app.put('/projects/:id', upload.array('files', 10), async (req, res) => {
+app.put('/projects/:id', verifyToken, upload.array('files', 10), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, labels } = req.body;
@@ -217,7 +288,7 @@ app.get("/getUsers", (req, res) => {
 
 //GET endpoint to get labes
 
-app.get('/labels', async (req, res) => {
+app.get('/labels', verifyToken, async (req, res) => {
   try {
     const labels = await Label.find();
     
@@ -229,7 +300,7 @@ app.get('/labels', async (req, res) => {
 });
 
 // POST endpoint to create a label
-app.post('/labels', async (req, res) => {
+app.post('/labels', verifyToken, async (req, res) => {
   const { name, color } = req.body;
   
   try {
@@ -255,7 +326,7 @@ app.post("/image/:id/annotations", async (req, res) => {
       id,
       { annotations },
       { new: true }
-    );
+    ).populate('annotations.label'); // Populate label details
 
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
@@ -274,29 +345,68 @@ app.post("/image/:id/annotations", async (req, res) => {
 //#region Auth
 app.post("/login", async (req, res) => {
   try {
-    const check = await collection.findOne({
-      email: req.body.email,
+    // Validate request body
+    const { email, password } = req.body;
+    if (typeof email !== "string" || typeof password !== "string") {
+      return res.status(400).json({ message: "Invalid email or password format" });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email: email.trim() });
+    if (!user) {
+      return res.status(400).json({ message: "User not found" });
+    }
+
+    // Compare password
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      return res.status(400).json({ message: "Incorrect password" });
+    }
+
+    // Create JWT
+    const token = jwt.sign({ id: user._id, email: user.email }, JWT_SECRET, {
+      expiresIn: "1h",
     });
 
-    if (check.password === req.body.password) {
-      res.send("success");
-    } else {
-      res.send("wrong password");
-    }
-  } catch {
-    res.send("no user found");
+    res.status(200).json({ message: "Login successful", token, email: user.email });
+  } catch (error) {
+    console.error("Login error: ", error);
+    res.status(500).json({ message: "Login failed", error });
   }
 });
 
+
 app.post("/signUp", async (req, res) => {
-  const data = {
-    email: req.body.email,
-  };
+  const { email, password, confirmPassword } = req.body;
 
-  await collection.insertMany([data]);
+  // Check if the passwords match
+  if (password !== confirmPassword) {
+    return res.status(400).json({ message: "Passwords do not match" });
+  }
 
-  res.send("success");
+  try {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    // Hash the password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      email,
+      password: hashedPassword,
+    });
+
+    await newUser.save();
+
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    console.error("Error during sign-up:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
 });
+
 //#endregion
 
 app.listen(3001, () => {

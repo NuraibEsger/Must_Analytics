@@ -2,12 +2,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFormik } from "formik";
 import { labelSchema } from "../validations/labelSchema";
 import { postLabel } from "../services/labelService";
+import { useSelector } from "react-redux";
 
 export const useLabelForm = (toggleLabelModal) => {
     const queryClient = useQueryClient();
-
+    const token = useSelector((state) => state.account.token);
     const mutation = useMutation({
-      mutationFn: (formData) => postLabel(formData),
+      mutationFn: (formData) => postLabel(formData, token),
       onSuccess: () => {
         toggleLabelModal();
         queryClient.invalidateQueries(["labels"]);

@@ -3,17 +3,20 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { postProject, updateProject } from "../services/projectService"; // Assuming updateProject is the API call for editing
 import { useFormik } from "formik";
 import { projectSchema } from "../validations/projectSchema";
+import { useSelector } from "react-redux";
 
 export const useProjectForm = (toggleModal, initialData) => {
   const [files, setFiles] = useState([]);
   const queryClient = useQueryClient();
+  const token = useSelector((state) => state.account.token);
+
 
   const mutation = useMutation({
     mutationFn: (formData) => {
       if (initialData) {
-        return updateProject(initialData.id, formData); // Call updateProject when editing
+        return updateProject(initialData.id, formData, token); // Call updateProject when editing
       } else {
-        return postProject(formData); // Call postProject when creating
+        return postProject(formData, token); // Call postProject when creating
       }
     },
     onSuccess: () => {

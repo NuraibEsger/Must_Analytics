@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { ref } = require('yup');
 
 mongoose.connect('mongodb://localhost:27017/Must_Analytics')
 .then(() => {
@@ -7,6 +8,20 @@ mongoose.connect('mongodb://localhost:27017/Must_Analytics')
   console.log(err);
 });
 
+const UserSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  password: {
+    type: String,
+    required: true,
+  },
+});
+
+
+// Image Schema for storing uploaded images
 // Image Schema for storing uploaded images
 const ImageSchema = new mongoose.Schema({
   fileName: {
@@ -30,9 +45,11 @@ const ImageSchema = new mongoose.Schema({
         southWest: { type: [Number] }, // Array [lat, lng]
         northEast: { type: [Number] }, // Array [lat, lng]
       },
+      label: { type: mongoose.Schema.Types.ObjectId, ref: 'Label' }, // Add reference to Label collection
     },
   ],
 });
+
 
 /// Label Schema
 const LabelSchema = new mongoose.Schema({
@@ -68,6 +85,8 @@ const ProjectSchema = new mongoose.Schema({
 const Project = mongoose.model('Project', ProjectSchema);
 const Image = mongoose.model('Image', ImageSchema);
 const Label = mongoose.model('Label', LabelSchema);
+const User = mongoose.model('User', UserSchema);
+
 
 const getProjectById = async (projectId) => {
   try {
@@ -79,4 +98,4 @@ const getProjectById = async (projectId) => {
   }
 };
 
-module.exports = { Project, Image, Label, getProjectById };
+module.exports = { User, Project, Image, Label, getProjectById };
