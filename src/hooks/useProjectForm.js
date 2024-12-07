@@ -10,18 +10,18 @@ export const useProjectForm = (toggleModal, initialData) => {
   const queryClient = useQueryClient();
   const token = useSelector((state) => state.account.token);
 
-
   const mutation = useMutation({
     mutationFn: (formData) => {
-      if (initialData) {
-        return updateProject(initialData.id, formData, token); // Call updateProject when editing
+      const projectId = initialData?.id || initialData?._id; // Use either id or _id
+      if (projectId) {
+        return updateProject(projectId, formData, token);
       } else {
-        return postProject(formData, token); // Call postProject when creating
+        return postProject(formData, token);
       }
     },
     onSuccess: () => {
       toggleModal();
-      queryClient.invalidateQueries(["projects"]); // Invalidate the projects query to refresh the list
+      queryClient.invalidateQueries(["projects"]);
     },
     onError: (error) => {
       console.error("Error uploading project: ", error);
@@ -32,7 +32,9 @@ export const useProjectForm = (toggleModal, initialData) => {
     initialValues: {
       name: initialData?.name || "",
       description: initialData?.description || "",
-      labels: initialData?.labels.map(label => label._id) || [],
+      labels: Array.isArray(initialData?.labels) 
+        ? initialData?.labels.map(label => label._id) 
+        : [], // Ensure it's an array
       files: [],
     },
     validationSchema: projectSchema,
@@ -41,19 +43,22 @@ export const useProjectForm = (toggleModal, initialData) => {
       const formData = new FormData();
       formData.append("name", values.name);
       formData.append("description", values.description);
-      
-      values.labels.forEach((labelId) => {
+  
+      // Normalize `labels` to always be an array
+      const labelArray = Array.isArray(values.labels) ? values.labels : [values.labels];
+      labelArray.forEach((labelId) => {
         formData.append("labels", labelId);
       });
-
+  
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
-
+  
       mutation.mutate(formData);
       setSubmitting(false);
     },
   });
+  
 
   const handleFileChange = (e) => {
     const filesArray = e.currentTarget.files;

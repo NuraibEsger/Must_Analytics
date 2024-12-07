@@ -8,6 +8,7 @@ const { User, Project, Image, Label } = require("./mongodb"); // Import the new 
 const fs = require('fs');
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+const sharp = require("sharp");
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
@@ -26,6 +27,41 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.static('public'));
 app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
+
+
+const optimizeImage = async (req, res, next) => {
+  if (!req.files || req.files.length === 0) {
+    return next();
+  }
+
+  const optimizedFiles = await Promise.all(
+    req.files.map(async (file) => {
+      const optimizedPath = file.path.replace(/\.\w+$/, ".webp");
+      await sharp(file.path)
+        .resize(800) // Resize image width to 800px, maintain aspect ratio
+        .webp({ quality: 80 }) // Convert to WebP with 80% quality
+        .toFile(optimizedPath);
+
+      return {
+        ...file,
+        filePath: optimizedPath,
+        fileName: file.originalname.replace(/\.\w+$/, ".webp"),
+      };
+    })
+  );
+
+  req.files = optimizedFiles; // Update files array with optimized files
+  next();
+};
+
+const generateLQIP = async (file) => {
+  const lqipPath = file.path.replace(/\.\w+$/, "-lqip.webp");
+  await sharp(file.path)
+    .resize(20) // Very small image size
+    .webp({ quality: 10 })
+    .toFile(lqipPath);
+  return lqipPath;
+};
 
 // Multer storage setup
 const storage = multer.diskStorage({
@@ -118,13 +154,23 @@ app.get('/project/:id', verifyToken, async (req, res) => {
 app.get("/image/:id", async (req, res) => {
   try {
     const image = await Image.findById(req.params.id)
-      .populate("annotations.label")
-      .lean(); // Use `.lean()` to get plain JSON objects
-      
+      .populate({
+        path: "annotations.label",
+      })
+      .lean();
+
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
-    res.json(image);
+
+    // Find the project that contains this image
+    const project = await Project.findOne({ images: image._id }).populate("labels").lean();
+    if (!project) {
+      return res.status(404).json({ message: "Project not found for this image" });
+    }
+
+    // Return image and project labels
+    res.json({ image, labels: project.labels });
   } catch (error) {
     console.error("Error fetching image:", error);
     res.status(500).json({ message: "Error fetching image", error });
@@ -134,17 +180,26 @@ app.get("/image/:id", async (req, res) => {
 // Create a new project and associate uploaded images
 app.post('/projects', verifyToken, upload.array('files', 10), async (req, res) => {
   try {
-    const { name, description, labels } = req.body; // Extract labels from body
+    const { name, description, labels } = req.body;
+
+    // Validate required fields
+    if (!name || !description) {
+      return res.status(400).json({ message: 'Name and description are required' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'At least one image file is required' });
+    }
 
     // Create project
     const project = new Project({ name, description });
-    await project.save();
 
     // Save each uploaded image
     const imagePromises = req.files.map((file) => {
+      const normalizedPath = file.path.replace(/\\/g, '/'); // Normalize path
       const image = new Image({
         fileName: file.originalname,
-        filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+        filePath: normalizedPath,
       });
       return image.save();
     });
@@ -155,7 +210,7 @@ app.post('/projects', verifyToken, upload.array('files', 10), async (req, res) =
     project.images = images.map((image) => image._id);
 
     // Handle labels
-    if (labels && labels.length > 0) {
+    if (labels && Array.isArray(labels)) {
       const labelIds = await Promise.all(
         labels.map(async (labelId) => {
           const label = await Label.findById(labelId);
@@ -171,18 +226,17 @@ app.post('/projects', verifyToken, upload.array('files', 10), async (req, res) =
     }
 
     await project.save();
-    
+
     res.json({ message: 'Project and images saved successfully', project });
   } catch (error) {
-    console.error('Upload Error: ', error);
-    res.status(500).json({ message: 'Error uploading project', error });
+    console.error('Upload Error: ', error.message);
+    res.status(500).json({ message: 'Error uploading project', error: error.message });
   }
 });
 
-app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), async (req, res) => {
-  const { id } = req.params;
 
-  console.log(id);
+app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), optimizeImage, async (req, res) => {
+  const { id } = req.params;
 
   try {
     const project = await Project.findById(id);
@@ -190,20 +244,21 @@ app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), a
       return res.status(404).json({ message: "Project not found" });
     }
 
-    // Save all uploaded images
-    const imagePromises = req.files.map((file) => {
+    const imagePromises = req.files.map(async (file) => {
+      const lqipPath = await generateLQIP(file);
+
       const image = new Image({
-        fileName: file.originalname,
-        filePath: `images/${encodeURIComponent(file.filename)}`,
+        fileName: file.fileName,
+        filePath: file.filePath,
+        placeholder: lqipPath, // Save LQIP path
       });
+
       return image.save();
     });
 
-
     const images = await Promise.all(imagePromises);
 
-    // Add images to the project
-    project.images.push(...images.map((image) => image._id));
+    project.images.push(...images.map((img) => img._id));
     await project.save();
 
     res.status(201).json({ message: "Images uploaded successfully", images });
@@ -213,7 +268,26 @@ app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), a
   }
 });
 
+app.delete('/projects/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
 
+    // Find and delete the project
+    const project = await Project.findByIdAndDelete(id);
+
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Optionally, delete associated images
+    await Image.deleteMany({ _id: { $in: project.images } });
+
+    res.json({ message: "Project deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting project:", error);
+    res.status(500).json({ message: "Error deleting project", error });
+  }
+});
 
 // Update an existing project
 app.put('/projects/:id', verifyToken, upload.array('files', 10), async (req, res) => {
@@ -221,56 +295,47 @@ app.put('/projects/:id', verifyToken, upload.array('files', 10), async (req, res
     const { id } = req.params;
     const { name, description, labels } = req.body;
 
-    // Find the project by ID
     const project = await Project.findById(id);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Update project fields
     project.name = name || project.name;
     project.description = description || project.description;
 
-    // Handle new files (if any were uploaded)
-    if (req.files && req.files.length > 0) {
+    // Handle new images if uploaded
+    if (req.files?.length) {
       const newImages = req.files.map((file) => ({
         fileName: file.originalname,
-        filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+        filePath: `images/${encodeURIComponent(file.filename)}`,
       }));
-
-      // Save the new images to the database
-      const imagePromises = newImages.map(image => new Image(image).save());
-      const savedImages = await Promise.all(imagePromises);
-
-      // Append the new image IDs to the project's images array
-      project.images = [...project.images, ...savedImages.map(img => img._id)];
+      const savedImages = await Promise.all(newImages.map((img) => new Image(img).save()));
+      project.images.push(...savedImages.map((img) => img._id));
     }
 
-    // Handle labels if they are provided
-    if (labels && labels.length > 0) {
+    // Ensure `labels` is treated as an array
+    const labelArray = Array.isArray(labels) ? labels : [labels];
+
+    // Update labels if provided
+    if (labelArray?.length > 0) {
       const labelIds = await Promise.all(
-        labels.map(async (labelId) => {
+        labelArray.map(async (labelId) => {
           const label = await Label.findById(labelId);
-          if (!label) {
-            throw new Error(`Label with ID ${labelId} not found`);
-          }
+          if (!label) throw new Error(`Label with ID ${labelId} not found`);
           return label._id;
         })
       );
-
-      // Update labels for the project
       project.labels = labelIds;
     }
 
-    // Save the updated project
     const updatedProject = await project.save();
-
     res.json({ message: 'Project updated successfully', project: updatedProject });
   } catch (error) {
     console.error('Error updating project:', error);
     res.status(500).json({ message: 'Error updating project', error });
   }
 });
+
 
 app.get("/getUsers", (req, res) => {
   res

@@ -22,8 +22,17 @@ export const getProjectsById = (projectId, token) => {
   return httpClient.get(`/project/${projectId}`, authHeaders(token));
 };
 
+export const deleteProject = (projectId, token) => {
+  return httpClient.delete(`/projects/${projectId}`, authHeaders(token));
+};
+
 // Update an existing project by ID
 export const updateProject = (projectId, data, token) => {
+  if (!projectId) {
+    console.error("Error: projectId is undefined or null");
+    throw new Error("Project ID is required");
+  }
+
   return httpClient.put(`/projects/${projectId}`, data, authHeaders(token));
 };
 

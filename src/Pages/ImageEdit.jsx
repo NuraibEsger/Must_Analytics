@@ -13,7 +13,6 @@ import "leaflet-draw/dist/leaflet.draw.css";
 import { useParams } from "react-router-dom";
 import { getImageById, saveAnnotations } from "../services/imageService";
 import { FiEye, FiTrash, FiBox, FiEyeOff } from "react-icons/fi";
-import { getLabels } from "../services/labelService";
 import { useSelector } from "react-redux";
 
 export default function ImageEdit() {
@@ -34,26 +33,14 @@ export default function ImageEdit() {
   useEffect(() => {
     const fetchImage = async () => {
       try {
-        const response = await getImageById(id);
-        console.log("Fetched data:", response);
-
-        // Parse annotations
-        if (response?.annotations) {
-          const parsedAnnotations = response.annotations.map((annotation) => ({
-            ...annotation,
-            bounds: annotation.bounds
-              ? {
-                  southWest: annotation.bounds.southWest,
-                  northEast: annotation.bounds.northEast,
-                }
-              : undefined,
-            coordinates: annotation.coordinates || [],
-          }));
-          console.log("Parsed annotations:", parsedAnnotations);
-          setAnnotations(parsedAnnotations);
+        const response = await getImageById(id, token); // Adjust to your API call
+        if (response.image) {
+          setImage(response.image);
+          setAnnotations(response.image.annotations || []);
         }
-
-        setImage(response);
+        if (response.labels) {
+          setLabels(response.labels); // Set project-specific labels
+        }
       } catch (err) {
         console.error("Error fetching image:", err);
         setError(err);
@@ -62,19 +49,7 @@ export default function ImageEdit() {
         setIsLoading(false);
       }
     };
-
-    // Fetch project labels (assuming you have a service to get labels)
-    const fetchLabels = async () => {
-      try {
-        const response = await getLabels(token); // Replace with your label fetching logic
-        setLabels(response.data);
-      } catch (err) {
-        console.error("Error fetching labels:", err);
-      }
-    };
-
     fetchImage();
-    fetchLabels();
   }, [id, token]);
 
   // Handle new shapes
@@ -101,24 +76,21 @@ export default function ImageEdit() {
 
     // Persist updated annotations to the backend
     saveAnnotations(id, updatedAnnotations)
-      .then(() => console.log("Annotations saved successfully!"))
       .catch((err) => console.error("Error saving annotations:", err));
   };
 
   const handleLabelChange = (annotationId, labelId) => {
-    const updatedAnnotations = annotations.map((annotation) => {
-      if (annotation.id === annotationId) {
-        return { ...annotation, label: labelId };
-      }
-      return annotation;
-    });
+    const updatedAnnotations = annotations.map((annotation) =>
+      annotation.id === annotationId ? { ...annotation, label: labelId } : annotation
+    );
     setAnnotations(updatedAnnotations);
-  
-    // Persist updated annotations to the backend
-    saveAnnotations(id, updatedAnnotations)
-      .then(() => console.log("Annotation label updated successfully!"))
-      .catch((err) => console.error("Error updating annotation label:", err));
+    saveAnnotations(id, updatedAnnotations, token)
+      .catch((err) => console.error("Error updating annotations:", err));
   };
+
+  if (isLoading) return <div>Loading...</div>;
+  if (isError) return <div>Error: {error?.message || "Unknown error"}</div>;
+
 
   const handleEdited = (e) => {
     const { layers } = e; // Get the edited layers
@@ -162,7 +134,6 @@ export default function ImageEdit() {
 
     // Save the updated annotations to the backend
     saveAnnotations(id, updatedAnnotations)
-      .then(() => console.log("Edited annotations saved successfully!"))
       .catch((err) => console.error("Error saving edited annotations:", err));
   };
 
@@ -177,7 +148,6 @@ export default function ImageEdit() {
 
     // Persist updated annotations to the backend
     saveAnnotations(id, updatedAnnotations)
-      .then(() => console.log("Annotations updated successfully!"))
       .catch((err) => console.error("Error updating annotations:", err));
   };
 

@@ -1,51 +1,66 @@
 import React, { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
-import { getProjectsById, uploadImages } from "../services/projectService";
+import { getProjectsById, uploadImages, deleteProject } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import { exportProject } from "../services/projectService";
-import { FiUpload, FiEdit, FiDownload } from "react-icons/fi";
+import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
 
 export default function ProjectDetail() {
   const params = useParams();
+  const navigate = useNavigate();
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [isUploading, setIsUploading] = useState(false);
+  
 
   const token = useSelector((state) => state.account.token);
 
   // Fetch the project by ID
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["Projects", params.id],
-    queryFn: () => getProjectsById(params.id, token), // Pass token here
+    queryFn: () => getProjectsById(params.id, token),
   });
 
   const handleExport = async () => {
     try {
-      await exportProject(params.id, token); // Pass token here
+      await exportProject(params.id, token);
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export project data. Please try again.");
     }
   };
 
+  const handleRemove = async () => {
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      try {
+        await deleteProject(params.id, token);
+        alert("Project removed successfully!");
+        navigate("/"); // Redirect to home after deletion
+      } catch (error) {
+        console.error("Remove failed:", error);
+        alert("Failed to remove project. Please try again.");
+      }
+    }
+  };
+
   const handleFileUpload = async (event) => {
-    const files = event.target.files; // Get selected files
+    const files = event.target.files;
     if (!files.length) {
       alert("No files selected for upload");
       return;
     }
-  
+
     const formData = new FormData();
     for (const file of files) {
-      formData.append("files", file); // Add each file to FormData
+      formData.append("files", file);
     }
-  
+
     setIsUploading(true);
     try {
-      await uploadImages(params.id, formData, token); // Pass FormData to the upload service
+      await uploadImages(params.id, formData, token);
       alert("Images uploaded successfully");
-      refetch(); // Refetch project data to update images
+      refetch();
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Failed to upload images. Please try again.");
@@ -110,6 +125,13 @@ export default function ProjectDetail() {
               <FiEdit />
               Edit
             </button>
+            <button
+              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+              onClick={handleRemove}
+            >
+              <FiTrash />
+              Remove
+            </button>
           </div>
         </div>
         <p className="text-gray-600">{project.description}</p>
@@ -146,7 +168,7 @@ export default function ProjectDetail() {
             >
               <Link to={`/edit-image/${image._id}`}>
                 <img
-                  src={`http://localhost:3001/` + image.filePath}
+                  src={`http://localhost:3001/${image.filePath}`}
                   alt={image.fileName}
                   className="w-full h-48 object-cover"
                 />

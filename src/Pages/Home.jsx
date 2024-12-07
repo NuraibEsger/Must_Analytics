@@ -1,6 +1,7 @@
-import { useState } from "react";
+import React, { useState, Suspense } from "react";
 import Modal from "../components/Modal";
-import Card from "../components/Card";
+
+const Card = React.lazy(() => import("../components/Card"));
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -56,8 +57,10 @@ export default function Home() {
         <Modal isOpen={isModalOpen} toggleModal={toggleModal} />
       </div>
 
-      {/* Render Cards */}
-      <Card />
+      {/* Render Cards with Suspense */}
+      <Suspense fallback={<div>Loading Projects...</div>}>
+        <Card />
+      </Suspense>
     </div>
   );
 }
