@@ -169,8 +169,11 @@ app.get("/image/:id", async (req, res) => {
       return res.status(404).json({ message: "Project not found for this image" });
     }
 
+    // Ensure labels are returned as an array
+    const labels = Array.isArray(project.labels) ? project.labels : [project.labels];
+
     // Return image and project labels
-    res.json({ image, labels: project.labels });
+    res.json({ image, labels });
   } catch (error) {
     console.error("Error fetching image:", error);
     res.status(500).json({ message: "Error fetching image", error });
