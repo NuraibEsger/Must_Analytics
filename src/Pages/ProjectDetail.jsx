@@ -1,18 +1,19 @@
 import React, { useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
-import { getProjectsById, uploadImages, deleteProject } from "../services/projectService";
+import { getProjectsById, uploadImages } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
+import Modal from "../components/Modal";
 import { exportProject } from "../services/projectService";
-import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
+import { FiUpload, FiEdit, FiDownload } from "react-icons/fi";
 
 export default function ProjectDetail() {
   const params = useParams();
-  const navigate = useNavigate();
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [isUploading, setIsUploading] = useState(false);
-  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [initialData, setInitialData] = useState(null); // Pass data for editing
 
   const token = useSelector((state) => state.account.token);
 
@@ -28,19 +29,6 @@ export default function ProjectDetail() {
     } catch (error) {
       console.error("Export failed:", error);
       alert("Failed to export project data. Please try again.");
-    }
-  };
-
-  const handleRemove = async () => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
-      try {
-        await deleteProject(params.id, token);
-        alert("Project removed successfully!");
-        navigate("/"); // Redirect to home after deletion
-      } catch (error) {
-        console.error("Remove failed:", error);
-        alert("Failed to remove project. Please try again.");
-      }
     }
   };
 
@@ -66,6 +54,13 @@ export default function ProjectDetail() {
       alert("Failed to upload images. Please try again.");
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleEdit = () => {
+    if (data) {
+      setInitialData(data.data); // Set the project data to pass to the modal
+      setIsModalOpen(true);
     }
   };
 
@@ -120,17 +115,10 @@ export default function ProjectDetail() {
             </label>
             <button
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition"
-              onClick={() => alert("Edit modal coming soon")}
+              onClick={handleEdit}
             >
               <FiEdit />
-              Edit
-            </button>
-            <button
-              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
-              onClick={handleRemove}
-            >
-              <FiTrash />
-              Remove
+              Edit Project
             </button>
           </div>
         </div>
@@ -180,5 +168,16 @@ export default function ProjectDetail() {
     );
   }
 
-  return <div>{content}</div>;
+  return (
+    <div>
+      {content}
+      {isModalOpen && (
+        <Modal
+          isOpen={isModalOpen}
+          toggleModal={() => setIsModalOpen(false)}
+          initialData={initialData} // Pass project data for editing
+        />
+      )}
+    </div>
+  );
 }

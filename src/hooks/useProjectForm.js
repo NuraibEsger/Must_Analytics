@@ -41,19 +41,23 @@ export const useProjectForm = (toggleModal, initialData) => {
     enableReinitialize: true, // This ensures the form resets when initialData changes
     onSubmit: (values, { setSubmitting }) => {
       const formData = new FormData();
+    
+      // Append project name and description
       formData.append("name", values.name);
       formData.append("description", values.description);
-  
-      // Normalize `labels` to always be an array
-      const labelArray = Array.isArray(values.labels) ? values.labels : [values.labels];
-      labelArray.forEach((labelId) => {
+    
+      // Ensure labels is an array, even if it's a single value
+      const labels = Array.isArray(values.labels) ? values.labels : [values.labels];
+      labels.forEach((labelId) => {
         formData.append("labels", labelId);
       });
-  
+    
+      // Append files
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
-  
+    
+      // Trigger mutation
       mutation.mutate(formData);
       setSubmitting(false);
     },
