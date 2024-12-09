@@ -1,15 +1,16 @@
 import React, { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
-import { getProjectsById, uploadImages } from "../services/projectService";
+import { getProjectsById, uploadImages, deleteProject } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
 import { exportProject } from "../services/projectService";
-import { FiUpload, FiEdit, FiDownload } from "react-icons/fi";
+import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
 
 export default function ProjectDetail() {
   const params = useParams();
+  const navigate = useNavigate();
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +62,19 @@ export default function ProjectDetail() {
     if (data) {
       setInitialData(data.data); // Set the project data to pass to the modal
       setIsModalOpen(true);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (window.confirm("Are you sure you want to delete this project?")) {
+      try {
+        await deleteProject(params.id, token);
+        alert("Project removed successfully!");
+        navigate("/");
+      } catch (error) {
+        console.error("Remove failed:", error);
+        alert("Failed to remove project. Please try again.");
+      }
     }
   };
 
@@ -119,6 +133,13 @@ export default function ProjectDetail() {
             >
               <FiEdit />
               Edit Project
+            </button>
+            <button
+              className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition"
+              onClick={handleRemove}
+            >
+              <FiTrash />
+              Remove
             </button>
           </div>
         </div>

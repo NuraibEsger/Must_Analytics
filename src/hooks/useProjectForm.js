@@ -27,7 +27,7 @@ export const useProjectForm = (toggleModal, initialData) => {
       console.error("Error uploading project: ", error);
     },
   });
-
+  
   const formik = useFormik({
     initialValues: {
       name: initialData?.name || "",
@@ -45,7 +45,7 @@ export const useProjectForm = (toggleModal, initialData) => {
       // Append project name and description
       formData.append("name", values.name);
       formData.append("description", values.description);
-    
+      
       // Ensure labels is an array, even if it's a single value
       const labels = Array.isArray(values.labels) ? values.labels : [values.labels];
       labels.forEach((labelId) => {

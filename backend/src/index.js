@@ -5,29 +5,29 @@ const collection = require("./mongodb");
 const cors = require("cors");
 const multer = require("multer");
 const { User, Project, Image, Label } = require("./mongodb"); // Import the new models
-const fs = require('fs');
+const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
-
 const app = express();
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*"); // Allow all origins
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
   next();
 });
 app.use(express.json());
 app.use(cors());
 app.set("view engine", "hbs");
-app.set("views", path.join(__dirname, '../templates'));
+app.set("views", path.join(__dirname, "../templates"));
 app.use(express.urlencoded({ extended: false }));
-app.use(express.static('public'));
-app.use('/images', express.static(path.join(__dirname, 'public/images')));
-
-
+app.use(express.static("public"));
+app.use("/images", express.static(path.join(__dirname, "public/images")));
 
 const optimizeImage = async (req, res, next) => {
   if (!req.files || req.files.length === 0) {
@@ -36,10 +36,12 @@ const optimizeImage = async (req, res, next) => {
 
   const optimizedFiles = await Promise.all(
     req.files.map(async (file) => {
-      const optimizedPath = file.path.replace(/\.\w+$/, ".webp");
+      const { dir, name } = path.parse(file.path);
+      const optimizedPath = path.join(dir, `${name}-optimized.webp`);
+
       await sharp(file.path)
-        .resize(800) // Resize image width to 800px, maintain aspect ratio
-        .webp({ quality: 80 }) // Convert to WebP with 80% quality
+        .resize(800) // Resize to 800px width
+        .webp({ quality: 80 }) // Convert to WebP
         .toFile(optimizedPath);
 
       return {
@@ -50,7 +52,7 @@ const optimizeImage = async (req, res, next) => {
     })
   );
 
-  req.files = optimizedFiles; // Update files array with optimized files
+  req.files = optimizedFiles;
   next();
 };
 
@@ -66,22 +68,25 @@ const generateLQIP = async (file) => {
 // Multer storage setup
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const dir = './public/images';
+    const dir = "./public/images";
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
     cb(null, dir);
   },
   filename: function (req, file, cb) {
-    return cb(null, `${file.originalname}`);
-  },  
+    // Extract the original file extension
+    // Create a new filename that starts with Date.now()
+    const newFilename = `${Date.now()}_${file.originalname}`;
+    cb(null, newFilename);
+  },
 });
 
-const upload = multer({storage});
+const upload = multer({ storage });
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
-  
+
   // Check if the Authorization header is provided
   if (!authHeader) {
     return res.status(403).json({ message: "No token provided" });
@@ -91,7 +96,9 @@ const verifyToken = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(403).json({ message: "Token not provided in the correct format" });
+    return res
+      .status(403)
+      .json({ message: "Token not provided in the correct format" });
   }
 
   // Verify the token
@@ -106,16 +113,15 @@ const verifyToken = (req, res, next) => {
   });
 };
 
-
 // Get all projects along with associated images
-app.get('/projects', verifyToken, async (req, res) => {
+app.get("/projects", verifyToken, async (req, res) => {
   try {
-    const projects = await Project.find().populate('images'); // Populates the images field with image details
-    
+    const projects = await Project.find().populate("images"); // Populates the images field with image details
+
     res.json(projects);
   } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ message: 'Error fetching projects', error });
+    console.error("Error fetching projects:", error);
+    res.status(500).json({ message: "Error fetching projects", error });
   }
 });
 
@@ -126,27 +132,30 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
   const projectData = await collection.getProjectById(projectId);
 
   // Send the data as a downloadable file (JSON format here)
-  res.setHeader("Content-Disposition", `attachment; filename=project_${projectId}_data.json`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename=project_${projectId}_data.json`
+  );
   res.setHeader("Content-Type", "application/json");
   res.send(JSON.stringify(projectData)); // You can also send CSV, XLSX, etc.
 });
 
 // Get a project by ID along with associated images
-app.get('/project/:id', verifyToken, async (req, res) => {
+app.get("/project/:id", verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
     const project = await Project.findById(projectId)
-    .populate('labels')
-    .populate('images'); // Populates the images field with image details
-    
+      .populate("labels")
+      .populate("images"); // Populates the images field with image details
+
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
     res.json(project);
   } catch (error) {
-    console.error('Error fetching project by ID:', error);
-    res.status(500).json({ message: 'Error fetching project', error });
+    console.error("Error fetching project by ID:", error);
+    res.status(500).json({ message: "Error fetching project", error });
   }
 });
 
@@ -164,13 +173,19 @@ app.get("/image/:id", async (req, res) => {
     }
 
     // Find the project that contains this image
-    const project = await Project.findOne({ images: image._id }).populate("labels").lean();
+    const project = await Project.findOne({ images: image._id })
+      .populate("labels")
+      .lean();
     if (!project) {
-      return res.status(404).json({ message: "Project not found for this image" });
+      return res
+        .status(404)
+        .json({ message: "Project not found for this image" });
     }
 
     // Ensure labels are returned as an array
-    const labels = Array.isArray(project.labels) ? project.labels : [project.labels];
+    const labels = Array.isArray(project.labels)
+      ? project.labels
+      : [project.labels];
 
     // Return image and project labels
     res.json({ image, labels });
@@ -181,95 +196,109 @@ app.get("/image/:id", async (req, res) => {
 });
 
 // Create a new project and associate uploaded images
-app.post('/projects', verifyToken, upload.array('files', 10), async (req, res) => {
-  try {
-    const { name, description, labels } = req.body;
+app.post(
+  "/projects",
+  verifyToken,
+  upload.array("files", 10),
+  async (req, res) => {
+    try {
+      const { name, description, labels } = req.body;
 
-    // Validate required fields
-    if (!name || !description) {
-      return res.status(400).json({ message: 'Name and description are required' });
-    }
+      // Validate required fields
+      if (!name || !description) {
+        return res
+          .status(400)
+          .json({ message: "Name and description are required" });
+      }
 
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ message: 'At least one image file is required' });
-    }
+      if (!req.files || req.files.length === 0) {
+        return res
+          .status(400)
+          .json({ message: "At least one image file is required" });
+      }
 
-    // Create project
-    const project = new Project({ name, description });
+      // Create project
+      const project = new Project({ name, description });
 
-    // Save each uploaded image
-    const imagePromises = req.files.map((file) => {
-      const normalizedPath = file.path.replace(/\\/g, '/'); // Normalize path
-      const image = new Image({
-        fileName: file.originalname,
-        filePath: normalizedPath,
+      // Save each uploaded image
+      const imagePromises = req.files.map((file) => {
+        const image = new Image({
+          fileName: file.originalname,
+          filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+        });
+        return image.save();
       });
-      return image.save();
-    });
 
-    const images = await Promise.all(imagePromises);
+      const images = await Promise.all(imagePromises);
 
-    // Add images to the project
-    project.images = images.map((image) => image._id);
+      // Add images to the project
+      project.images = images.map((image) => image._id);
 
-    // Handle labels
-    if (labels && Array.isArray(labels)) {
-      const labelIds = await Promise.all(
-        labels.map(async (labelId) => {
-          const label = await Label.findById(labelId);
-          if (!label) {
-            throw new Error(`Label with ID ${labelId} not found`);
-          }
-          return label._id;
-        })
-      );
+      // Handle labels
+      const labelArray = Array.isArray(labels) ? labels : [labels];
 
-      // Add labels to the project
-      project.labels = labelIds;
+      // Update labels if provided
+      if (labelArray?.length > 0) {
+        const labelIds = await Promise.all(
+          labelArray.map(async (labelId) => {
+            const label = await Label.findById(labelId);
+            if (!label) throw new Error(`Label with ID ${labelId} not found`);
+            return label._id;
+          })
+        );
+        project.labels = labelIds;
+      }
+
+      await project.save();
+
+      res.json({ message: "Project and images saved successfully", project });
+    } catch (error) {
+      console.error("Upload Error: ", error.message);
+      res
+        .status(500)
+        .json({ message: "Error uploading project", error: error.message });
     }
-
-    await project.save();
-
-    res.json({ message: 'Project and images saved successfully', project });
-  } catch (error) {
-    console.error('Upload Error: ', error.message);
-    res.status(500).json({ message: 'Error uploading project', error: error.message });
   }
-});
+);
 
+app.post(
+  "/project/:id/upload-images",
+  verifyToken,
+  upload.array("files", 10),
+  optimizeImage,
+  async (req, res) => {
+    const { id } = req.params;
 
-app.post('/project/:id/upload-images', verifyToken, upload.array('files', 10), optimizeImage, async (req, res) => {
-  const { id } = req.params;
+    try {
+      const project = await Project.findById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
 
-  try {
-    const project = await Project.findById(id);
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
-    }
-
-    const imagePromises = req.files.map(async (file) => {
-      const lqipPath = await generateLQIP(file);
-      const image = new Image({
-        fileName: file.fileName,
-        filePath: `images/${file.fileName}`,
-        placeholder: lqipPath, // Save LQIP path
+      const imagePromises = req.files.map(async (file) => {
+        const lqipPath = await generateLQIP(file);
+        const image = new Image({
+          fileName: file.originalname,
+          filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+          placeholder: lqipPath, // Save LQIP path
+        });
+        return image.save();
       });
-      return image.save();
-    });
 
-    const images = await Promise.all(imagePromises);
+      const images = await Promise.all(imagePromises);
 
-    project.images.push(...images.map((img) => img._id));
-    await project.save();
+      project.images.push(...images.map((img) => img._id));
+      await project.save();
 
-    res.status(201).json({ message: "Images uploaded successfully", images });
-  } catch (error) {
-    console.error("Error uploading images:", error);
-    res.status(500).json({ message: "Error uploading images", error });
+      res.status(201).json({ message: "Images uploaded successfully", images });
+    } catch (error) {
+      console.error("Error uploading images:", error);
+      res.status(500).json({ message: "Error uploading images", error });
+    }
   }
-});
+);
 
-app.delete('/projects/:id', verifyToken, async (req, res) => {
+app.delete("/projects/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -291,52 +320,61 @@ app.delete('/projects/:id', verifyToken, async (req, res) => {
 });
 
 // Update an existing project
-app.put('/projects/:id', verifyToken, upload.array('files', 10), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, description, labels } = req.body;
+app.put(
+  "/projects/:id",
+  verifyToken,
+  upload.array("files", 10),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { name, description, labels } = req.body;
 
-    const project = await Project.findById(id);
-    if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      const project = await Project.findById(id);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      project.name = name || project.name;
+      project.description = description || project.description;
+
+      // Handle new images if uploaded
+      if (req.files?.length) {
+        const newImages = req.files.map((file) => ({
+          fileName: file.originalname,
+          filePath: `images/${encodeURIComponent(file.filename)}`,
+        }));
+        const savedImages = await Promise.all(
+          newImages.map((img) => new Image(img).save())
+        );
+        project.images.push(...savedImages.map((img) => img._id));
+      }
+
+      // Ensure `labels` is treated as an array
+      const labelArray = Array.isArray(labels) ? labels : [labels];
+
+      // Update labels if provided
+      if (labelArray?.length > 0) {
+        const labelIds = await Promise.all(
+          labelArray.map(async (labelId) => {
+            const label = await Label.findById(labelId);
+            if (!label) throw new Error(`Label with ID ${labelId} not found`);
+            return label._id;
+          })
+        );
+        project.labels = labelIds;
+      }
+
+      const updatedProject = await project.save();
+      res.json({
+        message: "Project updated successfully",
+        project: updatedProject,
+      });
+    } catch (error) {
+      console.error("Error updating project:", error);
+      res.status(500).json({ message: "Error updating project", error });
     }
-
-    project.name = name || project.name;
-    project.description = description || project.description;
-
-    // Handle new images if uploaded
-    if (req.files?.length) {
-      const newImages = req.files.map((file) => ({
-        fileName: file.originalname,
-        filePath: `images/${encodeURIComponent(file.filename)}`,
-      }));
-      const savedImages = await Promise.all(newImages.map((img) => new Image(img).save()));
-      project.images.push(...savedImages.map((img) => img._id));
-    }
-
-    // Ensure `labels` is treated as an array
-    const labelArray = Array.isArray(labels) ? labels : [labels];
-
-    // Update labels if provided
-    if (labelArray?.length > 0) {
-      const labelIds = await Promise.all(
-        labelArray.map(async (labelId) => {
-          const label = await Label.findById(labelId);
-          if (!label) throw new Error(`Label with ID ${labelId} not found`);
-          return label._id;
-        })
-      );
-      project.labels = labelIds;
-    }
-
-    const updatedProject = await project.save();
-    res.json({ message: 'Project updated successfully', project: updatedProject });
-  } catch (error) {
-    console.error('Error updating project:', error);
-    res.status(500).json({ message: 'Error updating project', error });
   }
-});
-
+);
 
 app.get("/getUsers", (req, res) => {
   res
@@ -354,21 +392,21 @@ app.get("/getUsers", (req, res) => {
 
 //GET endpoint to get labes
 
-app.get('/labels', verifyToken, async (req, res) => {
+app.get("/labels", verifyToken, async (req, res) => {
   try {
     const labels = await Label.find();
-    
+
     res.json(labels);
   } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ message: 'Error fetching projects', error });
+    console.error("Error fetching projects:", error);
+    res.status(500).json({ message: "Error fetching projects", error });
   }
 });
 
 // POST endpoint to create a label
-app.post('/labels', verifyToken, async (req, res) => {
+app.post("/labels", verifyToken, async (req, res) => {
   const { name, color } = req.body;
-  
+
   try {
     const newLabel = new Label({
       name,
@@ -378,8 +416,8 @@ app.post('/labels', verifyToken, async (req, res) => {
     const savedLabel = await newLabel.save();
     res.status(201).json(savedLabel);
   } catch (error) {
-    console.error('Error creating label:', error);
-    res.status(500).json({ message: 'Error creating label', error });
+    console.error("Error creating label:", error);
+    res.status(500).json({ message: "Error creating label", error });
   }
 });
 
@@ -392,7 +430,7 @@ app.post("/image/:id/annotations", async (req, res) => {
       id,
       { annotations },
       { new: true }
-    ).populate('annotations.label'); // Populate label details
+    ).populate("annotations.label"); // Populate label details
 
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
@@ -405,7 +443,6 @@ app.post("/image/:id/annotations", async (req, res) => {
   }
 });
 
-
 //#endregion
 
 //#region Auth
@@ -414,7 +451,9 @@ app.post("/login", async (req, res) => {
     // Validate request body
     const { email, password } = req.body;
     if (typeof email !== "string" || typeof password !== "string") {
-      return res.status(400).json({ message: "Invalid email or password format" });
+      return res
+        .status(400)
+        .json({ message: "Invalid email or password format" });
     }
 
     // Check if user exists
@@ -434,13 +473,14 @@ app.post("/login", async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.status(200).json({ message: "Login successful", token, email: user.email });
+    res
+      .status(200)
+      .json({ message: "Login successful", token, email: user.email });
   } catch (error) {
     console.error("Login error: ", error);
     res.status(500).json({ message: "Login failed", error });
   }
 });
-
 
 app.post("/signUp", async (req, res) => {
   const { email, password, confirmPassword } = req.body;
