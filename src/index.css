@@ -16,3 +16,14 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.leaflet-interactive {
+  stroke-width: 1px !important;
+}
+
+.leaflet-marker-icon,
+.leaflet-div-icon {
+  width: 1px;
+  height: 1px;
+  border-radius: 50%;
+}

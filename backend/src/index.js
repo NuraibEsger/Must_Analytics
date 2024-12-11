@@ -199,7 +199,7 @@ app.get("/image/:id", async (req, res) => {
 app.post(
   "/projects",
   verifyToken,
-  upload.array("files"),
+  upload.array("files", 100),
   async (req, res) => {
     try {
       const { name, description, labels } = req.body;
@@ -264,7 +264,7 @@ app.post(
 app.post(
   "/project/:id/upload-images",
   verifyToken,
-  upload.array("files"),
+  upload.array("files", 100),
   optimizeImage,
   async (req, res) => {
     const { id } = req.params;
@@ -323,7 +323,7 @@ app.delete("/projects/:id", verifyToken, async (req, res) => {
 app.put(
   "/projects/:id",
   verifyToken,
-  upload.array("files"),
+  upload.array("files", 100),
   async (req, res) => {
     try {
       const { id } = req.params;

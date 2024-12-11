@@ -232,6 +232,7 @@ export default function ImageEdit() {
         center={[250, 250]}
         zoom={1}
         crs={L.CRS.Simple}
+        attributionControl={false}
       >
         {image && (
           <ImageOverlay
@@ -272,7 +273,7 @@ export default function ImageEdit() {
               rectangle: true,
               circle: false,
               marker: false,
-              polygon: true,
+              polygon: {shapeOptions: {weight: 1}},
               circlemarker: false,
               polyline: false,
             }}
