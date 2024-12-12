@@ -8,6 +8,8 @@ import ImageEdit from "./Pages/ImageEdit";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import ProtectedRoute from "./Pages/ProtectedRoute";
+import "react-toastify/dist/ReactToastify.css";
+import { ToastContainer } from "react-toastify";
 
 const router = createBrowserRouter([
   {
@@ -54,6 +56,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
     </QueryClientProvider>
   );
 }

@@ -12,6 +12,8 @@ import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import { useParams } from "react-router-dom";
 import { getImageById, saveAnnotations } from "../services/imageService";
+import { toast } from "react-toastify";
+import { ClipLoader } from "react-spinners";
 import { FiEye, FiTrash, FiBox, FiEyeOff } from "react-icons/fi";
 import { useSelector } from "react-redux";
 
@@ -24,6 +26,7 @@ export default function ImageEdit() {
   const [hiddenAnnotations, setHiddenAnnotations] = useState([]);
   const [image, setImage] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState(null);
   const [labels, setLabels] = useState([]);
@@ -52,15 +55,35 @@ export default function ImageEdit() {
     fetchImage();
   }, [id, token]);
 
+  const handleSaveClick = async () => {
+    try {
+      await saveAnnotations(id, annotations, token);
+      // Trigger a success toast after saving
+      toast.info("Annotations saved successfully!", {
+        position: "top-right",
+        autoClose: 3000, // 3 seconds
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+      });
+    } catch (err) {
+      console.error("Error saving annotations:", err);
+      toast.error("Failed to save annotations.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Handle new shapes
   const handleCreated = (e) => {
     const { layerType, layer } = e;
     let newAnnotation;
-
+  
     if (layerType === "polygon") {
-      const coordinates = layer
-        .getLatLngs()
-        .map((latLngs) => latLngs.map(({ lat, lng }) => [lat, lng]));
+      const coordinates = layer.getLatLngs().map(latLngs => latLngs.map(({ lat, lng }) => [lat, lng]));
       newAnnotation = { id: Date.now(), name: "Polygon", coordinates, label: null };
     } else if (layerType === "rectangle") {
       const bounds = layer.getBounds();
@@ -70,15 +93,10 @@ export default function ImageEdit() {
       };
       newAnnotation = { id: Date.now(), name: "Rectangle", bounds: simplifiedBounds, label: null };
     }
-
-    const updatedAnnotations = [...annotations, newAnnotation];
-    setAnnotations(updatedAnnotations);
-
-    // Persist updated annotations to the backend
-    saveAnnotations(id, updatedAnnotations)
-      .catch((err) => console.error("Error saving annotations:", err));
+  
+    setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation]);
   };
-
+  
   const handleLabelChange = (annotationId, labelId) => {
     const updatedAnnotations = annotations.map((annotation) =>
       annotation.id === annotationId ? { ...annotation, label: labelId } : annotation
@@ -90,53 +108,6 @@ export default function ImageEdit() {
 
   if (isLoading) return <div>Loading...</div>;
   if (isError) return <div>Error: {error?.message || "Unknown error"}</div>;
-
-
-  const handleEdited = (e) => {
-    const { layers } = e; // Get the edited layers
-    const updatedAnnotations = [...annotations];
-
-    layers.eachLayer((layer) => {
-      // Check if the layer is a Rectangle (bounds) or Polygon (coordinates)
-      if (layer instanceof L.Rectangle) {
-        const bounds = layer.getBounds();
-        const updatedBounds = {
-          southWest: [bounds.getSouthWest().lat, bounds.getSouthWest().lng],
-          northEast: [bounds.getNorthEast().lat, bounds.getNorthEast().lng],
-        };
-
-        // Find and update the corresponding annotation
-        const annotationIndex = updatedAnnotations.findIndex(
-          (annotation) => annotation.bounds && annotation.id === layer.options.id
-        );
-
-        if (annotationIndex !== -1) {
-          updatedAnnotations[annotationIndex].bounds = updatedBounds;
-        }
-      } else if (layer instanceof L.Polygon) {
-        const coordinates = layer
-          .getLatLngs()
-          .map((latLngs) => latLngs.map(({ lat, lng }) => [lat, lng]));
-
-        // Find and update the corresponding annotation
-        const annotationIndex = updatedAnnotations.findIndex(
-          (annotation) => annotation.coordinates && annotation.id === layer.options.id
-        );
-
-        if (annotationIndex !== -1) {
-          updatedAnnotations[annotationIndex].coordinates = coordinates;
-        }
-      }
-    });
-
-    // Update the annotations state
-    setAnnotations(updatedAnnotations);
-
-    // Save the updated annotations to the backend
-    saveAnnotations(id, updatedAnnotations)
-      .catch((err) => console.error("Error saving edited annotations:", err));
-  };
-
   
 
   // Remove annotations
@@ -175,11 +146,20 @@ export default function ImageEdit() {
       <div className="w-72 bg-white shadow-lg p-4 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
           Annotations ({annotations.length})
-          <button className="text-blue-500 hover:text-blue-700 flex items-center space-x-1">
+          <button
+            className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
+            onClick={handleSaveClick}
+          >
             <FiBox />
             <span>Add</span>
           </button>
         </h3>
+        {/* Loading indicator */}
+        {isSaving && (
+          <div className="flex justify-center items-center mt-2">
+            <ClipLoader  color="#000" size={20} />
+          </div>
+        )}
         <ul className="space-y-2">
           {annotations.map((annotation) => (
             <li
@@ -194,7 +174,9 @@ export default function ImageEdit() {
                     handleLabelChange(annotation.id, e.target.value)
                   }
                 >
-                  <option value="">{annotation.label?.name || "Select Label"}</option>
+                  <option value="">
+                    {annotation.label?.name || "Select Label"}
+                  </option>
                   {labels.map((label) => (
                     <option key={label._id} value={label._id}>
                       {label.name}
@@ -268,12 +250,11 @@ export default function ImageEdit() {
           <EditControl
             position="topright"
             onCreated={handleCreated}
-            onEdited={handleEdited}
             draw={{
               rectangle: true,
               circle: false,
               marker: false,
-              polygon: {shapeOptions: {weight: 1}},
+              polygon: { shapeOptions: { weight: 1 } },
               circlemarker: false,
               polyline: false,
             }}
