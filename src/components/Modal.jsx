@@ -66,23 +66,21 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     color: label.color,
   }));
 
-  const customStyles = {
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.data.color,
-      color: "#fff",
-      padding: 10,
-    }),
-    multiValue: (styles, { data }) => ({
-      ...styles,
-      backgroundColor: data.color,
-      color: "#fff",
-    }),
-    multiValueLabel: (styles, { data }) => ({
-      ...styles,
-      color: "#fff",
-    }),
-  };
+  const formatOptionLabel = (option) => (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      <span
+        style={{
+          backgroundColor: option.color,
+          borderRadius: '50%',
+          width: '10px',
+          height: '10px',
+          display: 'inline-block',
+          marginRight: '8px',
+        }}
+      ></span>
+      <span>{option.label}</span>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -126,30 +124,32 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
           </div>
 
           <label className="block text-gray-700 font-bold mb-2">Labels</label>
-          <div className="mb-4 flex justify-between">
-            <Select
-              isMulti
-              name="labels"
-              options={labelOptions}
-              className="basic-multi-select w-full"
-              classNamePrefix="select"
-              styles={customStyles}
-              value={labelOptions.filter((option) =>
-                formik.values.labels?.includes(option.value)
+          <div className="mb-4 flex items-center">
+            <div className="flex-1">
+              <Select
+                isMulti
+                name="labels"
+                options={labelOptions}
+                className="basic-multi-select w-full"
+                classNamePrefix="select"
+                formatOptionLabel={formatOptionLabel}
+                value={labelOptions.filter((option) =>
+                  formik.values.labels?.includes(option.value)
+                )}
+                onChange={(selectedOptions) =>
+                  formik.setFieldValue(
+                    "labels",
+                    selectedOptions
+                      ? selectedOptions.map((option) => option.value)
+                      : []
+                  )
+                }
+                placeholder="Add labels"
+              />
+              {formik.errors.labels && formik.touched.labels && (
+                <span style={{ color: "red" }}>{formik.errors.labels}</span>
               )}
-              onChange={(selectedOptions) =>
-                formik.setFieldValue(
-                  "labels",
-                  selectedOptions
-                    ? selectedOptions.map((option) => option.value)
-                    : []
-                )
-              }
-              placeholder="Add labels"
-            />
-            {formik.errors.labels && formik.touched.labels && (
-              <span style={{ color: "red" }}>{formik.errors.labels}</span>
-            )}
+            </div>
             <button
               type="button"
               className="v-btn v-btn--icon v-btn--round ml-4 p-3 rounded-full text-white"
@@ -160,13 +160,13 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             >
               +
             </button>
-
-            <AddLabelModal
-              isOpen={isModalOpen}
-              onClose={() => setModalOpen(false)}
-              toggleLabelModal={toggleLabelModal}
-            />
           </div>
+
+          <AddLabelModal
+            isOpen={isModalOpen}
+            onClose={() => setModalOpen(false)}
+            toggleLabelModal={toggleLabelModal}
+          />
 
           <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">
