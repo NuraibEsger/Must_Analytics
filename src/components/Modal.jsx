@@ -7,44 +7,65 @@ import Select from "react-select";
 import { useSelector } from "react-redux";
 
 export default function Modal({ isOpen, toggleModal, initialData }) {
-  // Pass initialData to useProjectForm for editing
-  const { formik, handleFileChange, isSubmitting } =
-    useProjectForm(toggleModal, initialData);
-
+  const { formik, handleFileChange, isSubmitting } = useProjectForm(toggleModal, initialData);
   const [isModalOpen, setModalOpen] = useState(false);
+  const token = useSelector((state) => state.account.token);
 
-  const token = useSelector((state) => state.account.token)
-
-  // Toggle label modal visibility
   const toggleLabelModal = () => {
     setModalOpen(!isModalOpen);
   };
 
-  // Fetch labels from the backend when the modal opens
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ["labels"],
     queryFn: async () => {
       return await getLabels(token);
     },
     cacheTime: 5000,
+    enabled: isOpen, // Only fetch if modal is open
   });
 
+  // If modal is not open, don't render anything
+  if (!isOpen) return null;
+
+  // Show a loading spinner if data is loading
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="flex justify-center items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+      </div>
+    );
   }
 
-  if (error) {
-    return <div>Error fetching labels</div>;
+  // Show an error message if there is an error fetching labels
+  if (isError) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+        <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+          <p className="text-red-600 font-semibold">Error fetching labels:</p>
+          <p className="text-sm text-gray-700 mt-2">{error?.message || "Please try again."}</p>
+          <div className="flex justify-end mt-4">
+            <button
+              type="button"
+              className="bg-gray-500 text-white px-4 py-2 rounded-md"
+              onClick={toggleModal}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // Convert the labels to the format required by `react-select`
+  // Proceed if data is successfully fetched
   const labelOptions = data.data.map((label) => ({
     value: label._id,
     label: label.name,
-    color: label.color, // Include the color from the API response
+    color: label.color,
   }));
 
-  // Custom styles for react-select to set background color based on label color
   const customStyles = {
     option: (provided, state) => ({
       ...provided,
@@ -62,8 +83,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
       color: "#fff",
     }),
   };
-
-  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -114,7 +133,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               options={labelOptions}
               className="basic-multi-select w-full"
               classNamePrefix="select"
-              styles={customStyles} // Apply custom styles to options
+              styles={customStyles}
               value={labelOptions.filter((option) =>
                 formik.values.labels?.includes(option.value)
               )}
@@ -131,7 +150,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             {formik.errors.labels && formik.touched.labels && (
               <span style={{ color: "red" }}>{formik.errors.labels}</span>
             )}
-            {/* Button next to the input */}
             <button
               type="button"
               className="v-btn v-btn--icon v-btn--round ml-4 p-3 rounded-full text-white"
