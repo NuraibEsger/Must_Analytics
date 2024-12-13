@@ -144,7 +144,6 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
 app.get("/project/:id", verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
-    console.log(projectId)
     const project = await Project.findById(projectId)
       .populate("labels")
       .populate("images"); // Populates the images field with image details
@@ -152,8 +151,6 @@ app.get("/project/:id", verifyToken, async (req, res) => {
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
-    console.log("2")
-    console.log(project)
     res.json(project);
 
   } catch (error) {
