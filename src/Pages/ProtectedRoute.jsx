@@ -2,30 +2,30 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { jwtDecode } from 'jwt-decode';
+import {jwtDecode} from "jwt-decode"; // Corrected import
 import { logoutAction } from "../redux/slices/accountSlice";
 
 const ProtectedRoute = ({ children }) => {
   const dispatch = useDispatch();
   const token = useSelector((state) => state.account.token);
-  const decoded = jwtDecode(token);
 
-  if (!token) {
-    return <Navigate to="/login" />;
+  if (!token || typeof token !== "string") {
+    return <Navigate to="/login" replace />;
   }
 
-  // Decode the token if it's a JWT
   try {
+    const decoded = jwtDecode(token);
     const { exp } = decoded;
-    const isExpired = Date.now() >= exp * 1000;
-    if (isExpired) {
+
+    // Check if the token has expired
+    if (Date.now() >= exp * 1000) {
       dispatch(logoutAction());
-      return <Navigate to="/login" />;
+      return <Navigate to="/login" replace />;
     }
-  } catch (e) {
-    // If decoding fails, assume invalid token
+  } catch (error) {
+    console.error("Token decoding failed:", error);
     dispatch(logoutAction());
-    return <Navigate to="/login" />;
+    return <Navigate to="/login" replace />;
   }
 
   return children;

@@ -9,6 +9,7 @@ const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
+const router = express.Router();
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
@@ -140,24 +141,69 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
   res.send(JSON.stringify(projectData)); // You can also send CSV, XLSX, etc.
 });
 
-// Get a project by ID along with associated images
-app.get("/project/:id", verifyToken, async (req, res) => {
+// GET /project/:id
+app.get('/project/:id', verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
+
+    // Validate Project ID format (optional but recommended)
+    if (!projectId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid project ID format' });
+    }
+
+    // Fetch project details excluding images
     const project = await Project.findById(projectId)
-      .populate("labels")
-      .populate("images"); // Populates the images field with image details
+      .select('name description labels') // Select necessary fields
+      .populate('labels'); // Populate labels if necessary
 
     if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+      return res.status(404).json({ message: 'Project not found' });
     }
-    res.json(project);
 
+    res.json({ data: project });
   } catch (error) {
-    console.error("Error fetching project by ID:", error);
-    res.status(500).json({ message: "Error fetching project", error });
+    console.error('Error fetching project by ID:', error);
+    res.status(500).json({ message: 'Error fetching project', error: error.message });
   }
 });
+
+// Get a project by ID along with associated images
+app.get('/project/:id/images', verifyToken, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+    const skip = parseInt(req.query.skip, 10) || 0;
+    const limit = parseInt(req.query.limit, 10) || 50;
+
+    // Validate project existence
+    const project = await Project.findById(projectId).select('images');
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Fetch total number of images
+    const totalImages = project.images.length;
+
+    // Calculate if there is a next page
+    const hasNextPage = skip + limit < totalImages;
+    const nextSkip = hasNextPage ? skip + limit : null;
+
+    // Fetch the paginated images
+    const images = await Image.find({ _id: { $in: project.images } })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    res.json({
+      images,
+      hasNextPage,
+      nextSkip,
+    });
+  } catch (error) {
+    console.error('Error fetching paginated images:', error);
+    res.status(500).json({ message: 'Error fetching images', error });
+  }
+});
+
 
 // Get image by ID
 app.get("/image/:id", async (req, res) => {

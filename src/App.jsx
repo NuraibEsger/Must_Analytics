@@ -10,11 +10,14 @@ import Register from "./Pages/Register";
 import ProtectedRoute from "./Pages/ProtectedRoute";
 import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
+import NotFound from "./Pages/NotFound";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const router = createBrowserRouter([
   {
     path: "/",
     element: <Root />,
+    errorElement: <ErrorBoundary />,
     children: [
       {
         path: "/login",
@@ -47,6 +50,10 @@ const router = createBrowserRouter([
             <ImageEdit />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "*",
+        element: <NotFound />,
       },
     ],
   },

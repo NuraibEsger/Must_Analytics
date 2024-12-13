@@ -22,6 +22,21 @@ export const getProjectsById = (projectId, token) => {
   return httpClient.get(`/project/${projectId}`, authHeaders(token));
 };
 
+// Fetch images with pagination
+export const getProjectImages = (projectId, token, skip = 0, limit = 50) => {
+  return httpClient
+    .get(`/project/${projectId}/images`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      params: {
+        skip,
+        limit,
+      },
+    })
+    .then((response) => response.data); // Ensure you return the data object directly
+};
+
 export const deleteProject = (projectId, token) => {
   return httpClient.delete(`/projects/${projectId}`, authHeaders(token));
 };

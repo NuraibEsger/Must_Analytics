@@ -13,14 +13,9 @@ const api = Axios.create({
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Check if the response status is 401 (Unauthorized)
     if (error.response && error.response.status === 401) {
-      // Dispatch logout to clear token
       store.dispatch(logoutAction());
-      // Redirect to login: If you have access to a navigate function:
       window.location.href = "/login"; 
-      // Or if using history, 
-      // history.push("/login");
     }
 
     return Promise.reject(error);
