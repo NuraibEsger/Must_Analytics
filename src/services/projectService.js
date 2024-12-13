@@ -51,17 +51,13 @@ export const updateProject = (projectId, data, token) => {
   return httpClient.put(`/projects/${projectId}`, data, authHeaders(token));
 };
 
-export const uploadImages = async (projectId, files, token) => {
-  const formData = new FormData();
-  files.forEach((file) => formData.append("files", file)); // Append multiple files
-  const response = await httpClient.post(`/project/${projectId}/upload-images`, formData, {
+export const uploadImages = (projectId, formData, token) => {
+  return httpClient.post(`/project/${projectId}/upload-images`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "multipart/form-data",
+      'Content-Type': 'multipart/form-data',
     },
   });
-
-  return response.data;
 };
 
 

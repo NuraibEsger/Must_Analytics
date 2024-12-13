@@ -180,18 +180,17 @@ app.get('/project/:id/images', verifyToken, async (req, res) => {
       return res.status(404).json({ message: 'Project not found' });
     }
 
-    // Fetch total number of images
-    const totalImages = project.images.length;
-
-    // Calculate if there is a next page
-    const hasNextPage = skip + limit < totalImages;
-    const nextSkip = hasNextPage ? skip + limit : null;
-
-    // Fetch the paginated images
+    // Fetch the paginated images sorted by createdAt descending
     const images = await Image.find({ _id: { $in: project.images } })
+      .sort({ createdAt: -1 }) // Sort newest first
       .skip(skip)
       .limit(limit)
       .exec();
+
+    // Calculate if there is a next page
+    const totalImages = project.images.length;
+    const hasNextPage = skip + limit < totalImages;
+    const nextSkip = hasNextPage ? skip + limit : null;
 
     res.json({
       images,
@@ -332,9 +331,12 @@ app.post(
       });
 
       const images = await Promise.all(imagePromises);
+      const imageIds = images.map((img) => img._id);
 
-      project.images.push(...images.map((img) => img._id));
-      await project.save();
+      // Update Project: add new image IDs to the beginning of the images array
+      await Project.findByIdAndUpdate(id, {
+        $push: { images: { $each: imageIds, $position: 0 } }, // Inserts at the beginning
+      });
 
       res.status(201).json({ message: "Images uploaded successfully", images });
     } catch (error) {

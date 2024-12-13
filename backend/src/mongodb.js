@@ -47,7 +47,7 @@ const ImageSchema = new mongoose.Schema({
       label: { type: mongoose.Schema.Types.ObjectId, ref: 'Label' }, // Add reference to Label collection
     },
   ],
-});
+}, {timestamps: true});
 
 
 /// Label Schema

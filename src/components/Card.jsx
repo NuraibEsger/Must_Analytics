@@ -1,3 +1,5 @@
+// src/components/Card.jsx
+
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getProjects } from "../services/projectService";

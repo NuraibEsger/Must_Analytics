@@ -142,7 +142,7 @@ export default function ProjectDetail() {
 
   const project = projectData.data;
 
-  // Flatten images from all pages
+  // Flatten images from all pages, maintaining the order (newest first)
   const allImages = imagesData?.pages?.flatMap(page => page.images) || [];
 
   return (
