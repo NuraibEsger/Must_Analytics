@@ -7,7 +7,7 @@ const AddLabelModal = ({ isOpen, onClose, toggleLabelModal }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50" style={{zIndexL: 1000}}>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50" style={{zIndex: 1000}}>
       {/* Changed from form to div */}
       <div className="bg-white rounded-lg p-6 w-full max-w-lg">
         <div className="d-flex justify-space-between align-center">
