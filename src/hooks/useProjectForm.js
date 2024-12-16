@@ -10,9 +10,11 @@ export const useProjectForm = (toggleModal, initialData) => {
   const queryClient = useQueryClient();
   const token = useSelector((state) => state.account.token);
 
+  console.log(initialData)
+
   const mutation = useMutation({
     mutationFn: (formData) => {
-      const projectId = initialData?.id || initialData?._id; // Use either id or _id
+      const projectId = initialData?.data?.id || initialData?.data?._id; // Use either id or _id
       if (projectId) {
         return updateProject(projectId, formData, token);
       } else {
@@ -30,36 +32,51 @@ export const useProjectForm = (toggleModal, initialData) => {
   
   const formik = useFormik({
     initialValues: {
-      name: initialData?.name || "",
-      description: initialData?.description || "",
-      labels: Array.isArray(initialData?.labels) 
-        ? initialData?.labels.map(label => label._id) 
+      name: initialData?.data?.name || "",
+      description: initialData?.data?.description || "",
+      labels: Array.isArray(initialData?.data?.labels) 
+        ? initialData?.data?.labels.map(label => label._id) 
         : [], // Ensure it's an array
       files: [],
     },
     validationSchema: projectSchema,
     enableReinitialize: true, // This ensures the form resets when initialData changes
-    onSubmit: (values, { setSubmitting }) => {
+    onSubmit: (values, { setSubmitting, resetForm }) => {
       const formData = new FormData();
     
       // Append project name and description
       formData.append("name", values.name);
       formData.append("description", values.description);
-      
-      // Ensure labels is an array, even if it's a single value
+    
+      // Append labels
       const labels = Array.isArray(values.labels) ? values.labels : [values.labels];
       labels.forEach((labelId) => {
         formData.append("labels", labelId);
       });
     
-      // Append files
+      // Append new files
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
     
+      // If editing, you might want to handle existing files differently
+      // For example, sending an array of existing file IDs to retain them
+      if (initialData?.files) {
+        initialData.files.forEach((file) => {
+          formData.append("existingFiles", file._id);
+        });
+      }
+    
       // Trigger mutation
-      mutation.mutate(formData);
-      setSubmitting(false);
+      mutation.mutate(formData, {
+        onSuccess: () => {
+          setSubmitting(false);
+          resetForm();
+        },
+        onError: () => {
+          setSubmitting(false);
+        },
+      });
     },
   });
   
@@ -73,7 +90,7 @@ export const useProjectForm = (toggleModal, initialData) => {
   // Set initial files when editing
   useEffect(() => {
     if (initialData && initialData.files) {
-      setFiles(initialData.files);
+      setFiles(initialData.data.files);
     }
   }, [initialData]);
 

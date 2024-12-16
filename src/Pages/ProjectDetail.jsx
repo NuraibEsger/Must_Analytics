@@ -8,6 +8,8 @@ import { getProjectsById, uploadImages, deleteProject, exportProject, getProject
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
 import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
+import { ClipLoader } from "react-spinners";
+import { toast } from "react-toastify";
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -44,16 +46,20 @@ export default function ProjectDetail() {
   const handleExport = async () => {
     try {
       await exportProject(params.id, token);
+      toast.success("Project exported successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Failed to export project data. Please try again.");
+      toast.error("Failed to export project data. Please try again.");
     }
   };
 
   const handleFileUpload = async (event) => {
     const files = event.target.files;
     if (!files.length) {
-      alert("No files selected for upload");
+      toast.error("No files selected for upload");
       return;
     }
 
@@ -65,12 +71,12 @@ export default function ProjectDetail() {
     setIsUploading(true);
     try {
       await uploadImages(params.id, formData, token);
-      alert("Images uploaded successfully");
+      toast.success("Images uploaded successfully");
       // Invalidate and refetch the images query to include the new uploads
       queryClient.invalidateQueries(["ProjectImages", params.id]);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("Failed to upload images. Please try again.");
+      toast.error("Failed to upload images. Please try again.");
     } finally {
       setIsUploading(false);
     }
@@ -87,11 +93,11 @@ export default function ProjectDetail() {
     if (window.confirm("Are you sure you want to delete this project?")) {
       try {
         await deleteProject(params.id, token);
-        alert("Project removed successfully!");
+        toast.success("Project removed successfully!");
         navigate("/");
       } catch (error) {
         console.error("Remove failed:", error);
-        alert("Failed to remove project. Please try again.");
+        toast.error("Failed to remove project. Please try again.");
       }
     }
   };
@@ -100,7 +106,7 @@ export default function ProjectDetail() {
   const observerRef = useRef();
   const lastImageRef = useCallback(
     (node) => {
-      if (imagesLoading || isFetchingNextPage) return;
+      if (imagesLoading || isFetchingNextPage) return ClipLoader;
       if (observerRef.current) observerRef.current.disconnect();
       observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasNextPage) {
@@ -189,7 +195,7 @@ export default function ProjectDetail() {
 
         {/* Images Grid */}
         <div
-          className="grid gap-4"
+          className="grid gap-4 overflow-y-auto"
           style={{
             gridTemplateColumns: `repeat(${selectedColumns}, minmax(0, 1fr))`,
           }}
@@ -257,7 +263,7 @@ export default function ProjectDetail() {
       </div>
 
       {/* Sidebar on the right */}
-      <aside className="w-64 bg-white shadow-md p-4">
+      <aside className="w-64 bg-white shadow-md p-4 sticky top-4 h-fit overflow-y-auto">
         <h2 className="text-lg font-bold mb-4">Filter</h2>
         <div className="mb-6">
           <h3 className="font-semibold mb-2">Columns</h3>

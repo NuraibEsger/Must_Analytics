@@ -469,6 +469,42 @@ app.post("/labels", verifyToken, async (req, res) => {
   }
 });
 
+router.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
+  const { projectId } = req.params;
+  const { name, color } = req.body;
+
+  // Basic validation
+  if (!name || !color) {
+    return res.status(400).json({ message: 'Name and color are required.' });
+  }
+
+  try {
+    // Check if the project exists
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found.' });
+    }
+
+    // Create the new label
+    const newLabel = new Label({
+      name,
+      color,
+      projects: [projectId], // Associate with the project
+    });
+
+    await newLabel.save();
+
+    // Add the label to the project's labels array
+    project.labels.push(newLabel._id);
+    await project.save();
+
+    res.status(201).json(newLabel);
+  } catch (error) {
+    console.error('Error creating label:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
 app.post("/image/:id/annotations", async (req, res) => {
   const { id } = req.params;
   const { annotations } = req.body;

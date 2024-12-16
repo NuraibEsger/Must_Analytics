@@ -14,8 +14,9 @@ import { useParams } from "react-router-dom";
 import { getImageById, saveAnnotations } from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
-import { FiEye, FiTrash, FiBox, FiEyeOff } from "react-icons/fi";
+import { FiEye, FiTrash, FiBox, FiEyeOff, FiPlus } from "react-icons/fi";
 import { useSelector } from "react-redux";
+import AddLabelModal from "../components/AddLabelModal";
 
 export default function ImageEdit() {
   const { id } = useParams();
@@ -30,6 +31,7 @@ export default function ImageEdit() {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState(null);
   const [labels, setLabels] = useState([]);
+  const [isAddLabelModalOpen, setIsAddLabelModalOpen] = useState(false);
   
   const token = useSelector((state) => state.account.token);
   // Fetch image, annotations, and labels
@@ -54,6 +56,10 @@ export default function ImageEdit() {
     };
     fetchImage();
   }, [id, token]);
+
+  const toggleAddLabelModal = () => {
+    setIsAddLabelModalOpen(!isAddLabelModalOpen);
+  };
 
   const handleSaveClick = async () => {
     try {
@@ -143,21 +149,28 @@ export default function ImageEdit() {
   return (
     <div className="flex h-screen">
       {/* Annotations Panel */}
-      <div className="w-72 bg-white shadow-lg p-4 overflow-y-auto">
+      <div className="w-96 bg-white shadow-lg p-4 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
           Annotations ({annotations.length})
           <button
-            className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
+            className="text-blue-500 hover:text-blue-700 flex items-center space-x-0"
             onClick={handleSaveClick}
           >
             <FiBox />
             <span>Add</span>
           </button>
+          <button
+            className="text-green-500 hover:text-green-700 flex items-center space-x-0"
+            onClick={toggleAddLabelModal}
+          >
+            <FiPlus />
+            <span>Add Label</span>
+          </button>
         </h3>
         {/* Loading indicator */}
         {isSaving && (
           <div className="flex justify-center items-center mt-2">
-            <ClipLoader  color="#000" size={20} />
+            <ClipLoader color="#000" size={20} />
           </div>
         )}
         <ul className="space-y-2">
@@ -265,6 +278,13 @@ export default function ImageEdit() {
           />
         </FeatureGroup>
       </MapContainer>
+
+      {/* AddLabelModal */}
+      <AddLabelModal
+        isOpen={isAddLabelModalOpen}
+        onClose={toggleAddLabelModal}
+        toggleLabelModal={toggleAddLabelModal}
+      />
     </div>
   );
 }

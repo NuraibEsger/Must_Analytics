@@ -15,12 +15,14 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     setModalOpen(!isModalOpen);
   };
 
-  const { data, isLoading, isError, error } = useQuery({
+
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["labels"],
     queryFn: async () => {
       return await getLabels(token);
     },
-    cacheTime: 5000,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 10, // 10 minutes
     enabled: isOpen, // Only fetch if modal is open
   });
 
@@ -41,19 +43,20 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
   // Show an error message if there is an error fetching labels
   if (isError) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-        <div className="bg-white rounded-lg p-6 w-full max-w-lg">
-          <p className="text-red-600 font-semibold">Error fetching labels:</p>
-          <p className="text-sm text-gray-700 mt-2">{error?.message || "Please try again."}</p>
-          <div className="flex justify-end mt-4">
-            <button
-              type="button"
-              className="bg-gray-500 text-white px-4 py-2 rounded-md"
-              onClick={toggleModal}
-            >
-              Close
-            </button>
-          </div>
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <div
+          className="bg-white rounded-lg p-6 w-full max-w-lg"
+          role="document"
+        >
+          <h2 id="modal-title" className="text-xl font-bold mb-4">
+            {initialData ? "Edit Project" : "Add New Project"}
+          </h2>
+          {/* Rest of the modal content */}
         </div>
       </div>
     );

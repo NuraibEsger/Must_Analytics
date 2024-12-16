@@ -27,3 +27,13 @@ code {
   height: 1px;
   border-radius: 50%;
 }
+
+.leaflet-div-icon.leaflet-editing-icon {
+  width: 10px !important; /* Desired size */
+  height: 10px !important; /* Desired size */
+  margin-left: -4px !important; /* Centers the icon */
+  margin-top: -4px !important; /* Centers the icon */
+  background-color: #fff !important; /* Optional: background color */
+  border: 2px solid #3388ff !important; /* Optional: border color and thickness */
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5); /* Optional: subtle shadow for better visibility */
+}
