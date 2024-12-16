@@ -4,7 +4,13 @@ import React, { useState, useRef, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "react-redux";
-import { getProjectsById, uploadImages, deleteProject, exportProject, getProjectImages } from "../services/projectService";
+import {
+  getProjectsById,
+  uploadImages,
+  deleteProject,
+  exportProject,
+  getProjectImages,
+} from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
 import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
@@ -19,13 +25,20 @@ export default function ProjectDetail() {
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [initialData, setInitialData] = useState(null);
+  const [activeMenu, setActiveMenu] = useState("Filter"); // New state for menu
 
   const token = useSelector((state) => state.account.token);
 
   // Fetch project details (name, description, labels)
-  const { data: projectData, isLoading: projectLoading, isError: projectError, error: projectErrorData } = useQuery({
+  const {
+    data: projectData,
+    isLoading: projectLoading,
+    isError: projectError,
+    error: projectErrorData,
+  } = useQuery({
     queryKey: ["ProjectDetail", params.id],
     queryFn: () => getProjectsById(params.id, token),
+    
   });
 
   // Infinite Query for images
@@ -106,7 +119,7 @@ export default function ProjectDetail() {
   const observerRef = useRef();
   const lastImageRef = useCallback(
     (node) => {
-      if (imagesLoading || isFetchingNextPage) return ClipLoader;
+      if (imagesLoading || isFetchingNextPage) return;
       if (observerRef.current) observerRef.current.disconnect();
       observerRef.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasNextPage) {
@@ -138,10 +151,7 @@ export default function ProjectDetail() {
   if (!projectData || !projectData.data) {
     return (
       <div className="py-10">
-        <ErrorBlock
-          title="No Data"
-          message="No project data found. Please try again later."
-        />
+        <ErrorBlock title="No Data" message="No project data found. Please try again later." />
       </div>
     );
   }
@@ -149,7 +159,7 @@ export default function ProjectDetail() {
   const project = projectData.data;
 
   // Flatten images from all pages, maintaining the order (newest first)
-  const allImages = imagesData?.pages?.flatMap(page => page.images) || [];
+  const allImages = imagesData?.pages?.flatMap((page) => page.images) || [];
 
   return (
     <div className="flex gap-4">
@@ -168,12 +178,7 @@ export default function ProjectDetail() {
             <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
               <FiUpload />
               {isUploading ? "Uploading..." : "Upload Data"}
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
+              <input type="file" multiple onChange={handleFileUpload} className="hidden" />
             </label>
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
@@ -210,10 +215,7 @@ export default function ProjectDetail() {
               >
                 {/* If single column, use a square ratio container to create a square image */}
                 {selectedColumns === 1 ? (
-                  <div
-                    className="relative w-full"
-                    style={{ paddingBottom: "100%" }}
-                  >
+                  <div className="relative w-full" style={{ paddingBottom: "100%" }}>
                     <Link to={`/edit-image/${image._id}`}>
                       <img
                         src={`http://localhost:3001/${image.filePath}`}
@@ -228,9 +230,7 @@ export default function ProjectDetail() {
                     <img
                       src={`http://localhost:3001/${image.filePath}`}
                       alt={image.fileName}
-                      className={`w-full ${
-                        selectedColumns === 5 ? "h-32" : "h-48"
-                      } object-cover object-center`}
+                      className={`w-full ${selectedColumns === 5 ? "h-32" : "h-48"} object-cover object-center`}
                     />
                   </Link>
                 )}
@@ -242,7 +242,7 @@ export default function ProjectDetail() {
         {/* Loading Indicator for Next Page */}
         {isFetchingNextPage && (
           <div className="flex justify-center py-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+            <ClipLoader color="#000" size={30} />
           </div>
         )}
 
@@ -264,26 +264,74 @@ export default function ProjectDetail() {
 
       {/* Sidebar on the right */}
       <aside className="w-64 bg-white shadow-md p-4 sticky top-4 h-fit overflow-y-auto">
-        <h2 className="text-lg font-bold mb-4">Filter</h2>
-        <div className="mb-6">
-          <h3 className="font-semibold mb-2">Columns</h3>
-          <div className="flex gap-2 flex-wrap">
-            {[1, 2, 3, 4, 5].map((num) => (
-              <button
-                key={num}
-                className={`px-5 py-1 rounded-full transition-all duration-200 
-                  ${
-                    selectedColumns === num
-                      ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow"
-                      : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                  }`}
-                onClick={() => setSelectedColumns(num)}
-              >
-                {num}
-              </button>
-            ))}
-          </div>
+        {/* Menu Buttons */}
+        <div className="flex justify-around mb-6">
+          <button
+            className={`py-2 px-4 text-center ${
+              activeMenu === "Filter"
+                ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
+                : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
+            } transition-colors duration-200`}
+            onClick={() => setActiveMenu("Filter")}
+          >
+            Filter
+          </button>
+          <button
+            className={`py-2 px-4 text-center ${
+              activeMenu === "Statistics"
+                ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
+                : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
+            } transition-colors duration-200`}
+            onClick={() => setActiveMenu("Statistics")}
+          >
+            Statistics
+          </button>
         </div>
+
+        {/* Conditional Rendering Based on Active Menu */}
+        {activeMenu === "Filter" ? (
+          <>
+            <div className="mb-6">
+              <h3 className="font-semibold mb-2">Columns</h3>
+              <div className="flex gap-2 flex-wrap">
+                {[1, 2, 3, 4, 5].map((num) => (
+                  <button
+                    key={num}
+                    className={`px-5 py-1 rounded-full transition-all duration-200 
+                      ${
+                        selectedColumns === num
+                          ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow"
+                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                      }`}
+                    onClick={() => setSelectedColumns(num)}
+                  >
+                    {num}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Additional Filter Options Can Be Added Here */}
+          </>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h3 className="font-semibold mb-2">Statistics</h3>
+              {/* Example Statistics Content */}
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold">Total Annotations</h4>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold">Labels Distribution</h4>
+                  <ul className="list-disc list-inside">
+                    
+                  </ul>
+                </div>
+                {/* Add More Statistics as Needed */}
+              </div>
+            </div>
+          </>
+        )}
       </aside>
 
       {isModalOpen && (
