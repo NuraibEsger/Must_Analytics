@@ -206,8 +206,10 @@ app.get('/project/:id/images', verifyToken, async (req, res) => {
 
 // Get image by ID
 app.get("/image/:id", async (req, res) => {
+  const { id } = req.params;
+
   try {
-    const image = await Image.findById(req.params.id)
+    const image = await Image.findById(id)
       .populate({
         path: "annotations.label",
       })
@@ -233,7 +235,7 @@ app.get("/image/:id", async (req, res) => {
       : [project.labels];
 
     // Return image and project labels
-    res.json({ image, labels });
+    res.json({projectId: project._id, image, labels });
   } catch (error) {
     console.error("Error fetching image:", error);
     res.status(500).json({ message: "Error fetching image", error });
@@ -469,10 +471,11 @@ app.post("/labels", verifyToken, async (req, res) => {
   }
 });
 
-router.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
+// Express Router
+
+app.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
   const { projectId } = req.params;
   const { name, color } = req.body;
-
   // Basic validation
   if (!name || !color) {
     return res.status(400).json({ message: 'Name and color are required.' });

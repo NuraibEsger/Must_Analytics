@@ -1,3 +1,5 @@
+// src/Pages/ImageEdit.jsx
+
 import React, { useEffect, useState, useRef } from "react";
 import {
   MapContainer,
@@ -36,6 +38,8 @@ export default function ImageEdit() {
   const token = useSelector((state) => state.account.token);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
+  const [projectId, setProjectId] = useState(null); // Add projectId state
+
   // Fetch image, annotations, and labels
   useEffect(() => {
     const fetchImage = async () => {
@@ -44,9 +48,10 @@ export default function ImageEdit() {
         if (response.image) {
           setImage(response.image);
           setAnnotations(response.image.annotations || []);
+          setLabels(response.labels || []); // Assuming labels are part of image data
         }
-        if (response.labels) {
-          setLabels(response.labels); // Set project-specific labels
+        if (response.projectId) {
+          setProjectId(response.projectId);
         }
       } catch (err) {
         console.error("Error fetching image:", err);
@@ -65,6 +70,7 @@ export default function ImageEdit() {
 
   const handleSaveClick = async () => {
     try {
+      setIsSaving(true);
       await saveAnnotations(id, annotations, token);
       // Trigger a success toast after saving
       toast.info("Annotations saved successfully!", {
@@ -114,10 +120,6 @@ export default function ImageEdit() {
       .catch((err) => console.error("Error updating annotations:", err));
   };
 
-  if (isLoading) return <div>Loading...</div>;
-  if (isError) return <div>Error: {error?.message || "Unknown error"}</div>;
-  
-
   // Remove annotations
   const removeAnnotation = (annotationId) => {
     const updatedAnnotations = annotations.filter(
@@ -126,7 +128,7 @@ export default function ImageEdit() {
     setAnnotations(updatedAnnotations);
 
     // Persist updated annotations to the backend
-    saveAnnotations(id, updatedAnnotations)
+    saveAnnotations(id, updatedAnnotations, token)
       .catch((err) => console.error("Error updating annotations:", err));
   };
 
@@ -139,9 +141,10 @@ export default function ImageEdit() {
     );
   };
 
-  if (isLoading) return <div>Loading image...</div>;
+  if (isLoading) return <div className="flex justify-center items-center h-full w-full">Loading image...</div>;
   if (isError)
-    return <div>Error loading image: {error?.message || "Unknown error"}</div>;
+    return <div className="flex justify-center items-center h-full w-full">Error loading image: {error?.message || "Unknown error"}</div>;
+
 
   const bounds = [
     [0, 0],
@@ -155,15 +158,18 @@ export default function ImageEdit() {
         <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
           Annotations ({annotations.length})
           <button
-            className="text-blue-500 hover:text-blue-700 flex items-center space-x-0"
+            className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
             onClick={handleSaveClick}
+            disabled={isSaving}
+            aria-label="Save Annotations"
           >
             <FiBox />
-            <span>Add</span>
+            <span>Save</span>
           </button>
           <button
-            className="text-green-500 hover:text-green-700 flex items-center space-x-0"
+            className="text-green-500 hover:text-green-700 flex items-center space-x-1"
             onClick={toggleAddLabelModal}
+            aria-label="Add Label"
           >
             <FiPlus />
             <span>Add Label</span>
@@ -188,6 +194,8 @@ export default function ImageEdit() {
                   onChange={(e) =>
                     handleLabelChange(annotation.id, e.target.value)
                   }
+                  className="border border-gray-300 rounded-md px-2 py-1"
+                  aria-label={`Select Label for Annotation ${annotation.id}`}
                 >
                   <option value="">
                     {annotation.label?.name || "Select Label"}
@@ -203,6 +211,7 @@ export default function ImageEdit() {
                 <button
                   className="text-gray-500 hover:text-gray-700"
                   onClick={() => toggleVisibility(annotation.id)}
+                  aria-label={`Toggle Visibility for Annotation ${annotation.id}`}
                 >
                   {hiddenAnnotations.includes(annotation.id) ? (
                     <FiEyeOff />
@@ -214,6 +223,7 @@ export default function ImageEdit() {
                 <button
                   className="text-red-500 hover:text-red-700"
                   onClick={() => removeAnnotation(annotation.id)}
+                  aria-label={`Remove Annotation ${annotation.id}`}
                 >
                   <FiTrash />
                 </button>
@@ -246,6 +256,12 @@ export default function ImageEdit() {
                 <Polygon
                   key={annotation.id}
                   positions={annotation.coordinates}
+                  pathOptions={{
+                    color: "#3388ff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.2,
+                  }}
                 />
               );
             } else if (annotation.bounds) {
@@ -257,6 +273,12 @@ export default function ImageEdit() {
                     annotation.bounds.southWest,
                     annotation.bounds.northEast,
                   ]}
+                  pathOptions={{
+                    color: "#3388ff",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.2,
+                  }}
                 />
               );
             }
@@ -286,6 +308,7 @@ export default function ImageEdit() {
         isOpen={isAddLabelModalOpen}
         onClose={toggleAddLabelModal}
         toggleLabelModal={toggleAddLabelModal}
+        projectId={projectId} // Pass the projectId to associate the label
       />
     </div>
   );
