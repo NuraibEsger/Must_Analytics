@@ -5,8 +5,10 @@ import { logoutAction } from "../redux/slices/accountSlice";
 
 export const queryClient = new QueryClient();
 
+const backendUrl = process.env.REACT_APP_BACKEND_URL
+
 const api = Axios.create({
-  baseURL: `http://localhost:3001`,
+  baseURL: backendUrl,
 });
 
 // Add an interceptor for responses

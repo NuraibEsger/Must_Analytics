@@ -25,3 +25,10 @@ yarn-error.log*
 
 # vs
 .vs/
+
+# Environment Variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production

@@ -28,6 +28,7 @@ export default function ProjectDetail() {
   const [activeMenu, setActiveMenu] = useState("Filter"); // New state for menu
 
   const token = useSelector((state) => state.account.token);
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
   // Fetch project details (name, description, labels)
   const {
@@ -38,7 +39,6 @@ export default function ProjectDetail() {
   } = useQuery({
     queryKey: ["ProjectDetail", params.id],
     queryFn: () => getProjectsById(params.id, token),
-    
   });
 
   // Infinite Query for images
@@ -52,8 +52,10 @@ export default function ProjectDetail() {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ["ProjectImages", params.id],
-    queryFn: ({ pageParam = 0 }) => getProjectImages(params.id, token, pageParam, 50),
-    getNextPageParam: (lastPage) => (lastPage.hasNextPage ? lastPage.nextSkip : undefined),
+    queryFn: ({ pageParam = 0 }) =>
+      getProjectImages(params.id, token, pageParam, 50),
+    getNextPageParam: (lastPage) =>
+      lastPage.hasNextPage ? lastPage.nextSkip : undefined,
   });
 
   const handleExport = async () => {
@@ -143,7 +145,9 @@ export default function ProjectDetail() {
     return (
       <div className="flex flex-col justify-center items-center h-full w-full py-10">
         <p className="text-red-600 font-semibold">Error fetching project:</p>
-        <p className="text-sm text-gray-700 mt-2">{projectErrorData?.message || "Please try again."}</p>
+        <p className="text-sm text-gray-700 mt-2">
+          {projectErrorData?.message || "Please try again."}
+        </p>
       </div>
     );
   }
@@ -151,7 +155,10 @@ export default function ProjectDetail() {
   if (!projectData || !projectData.data) {
     return (
       <div className="py-10">
-        <ErrorBlock title="No Data" message="No project data found. Please try again later." />
+        <ErrorBlock
+          title="No Data"
+          message="No project data found. Please try again later."
+        />
       </div>
     );
   }
@@ -178,7 +185,12 @@ export default function ProjectDetail() {
             <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
               <FiUpload />
               {isUploading ? "Uploading..." : "Upload Data"}
-              <input type="file" multiple onChange={handleFileUpload} className="hidden" />
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+              />
             </label>
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
@@ -215,10 +227,13 @@ export default function ProjectDetail() {
               >
                 {/* If single column, use a square ratio container to create a square image */}
                 {selectedColumns === 1 ? (
-                  <div className="relative w-full" style={{ paddingBottom: "100%" }}>
+                  <div
+                    className="relative w-full"
+                    style={{ paddingBottom: "100%" }}
+                  >
                     <Link to={`/edit-image/${image._id}`}>
                       <img
-                        src={`http://localhost:3001/${image.filePath}`}
+                        src={`${backendUrl}/${image.filePath}`}
                         alt={image.fileName}
                         className="absolute top-0 left-0 w-full h-full object-cover object-center"
                       />
@@ -228,9 +243,11 @@ export default function ProjectDetail() {
                   // Multiple columns: keep a fixed height
                   <Link to={`/edit-image/${image._id}`}>
                     <img
-                      src={`http://localhost:3001/${image.filePath}`}
+                      src={`${backendUrl}/${image.filePath}`}
                       alt={image.fileName}
-                      className={`w-full ${selectedColumns === 5 ? "h-32" : "h-48"} object-cover object-center`}
+                      className={`w-full ${
+                        selectedColumns === 5 ? "h-32" : "h-48"
+                      } object-cover object-center`}
                     />
                   </Link>
                 )}
@@ -257,7 +274,9 @@ export default function ProjectDetail() {
         {imagesError && (
           <div className="flex flex-col justify-center items-center py-4">
             <p className="text-red-600 font-semibold">Error loading images:</p>
-            <p className="text-sm text-gray-700 mt-2">{imagesErrorData?.message || "Please try again."}</p>
+            <p className="text-sm text-gray-700 mt-2">
+              {imagesErrorData?.message || "Please try again."}
+            </p>
           </div>
         )}
       </div>
@@ -323,9 +342,7 @@ export default function ProjectDetail() {
                 </div>
                 <div>
                   <h4 className="text-sm font-semibold">Labels Distribution</h4>
-                  <ul className="list-disc list-inside">
-                    
-                  </ul>
+                  <ul className="list-disc list-inside"></ul>
                 </div>
                 {/* Add More Statistics as Needed */}
               </div>

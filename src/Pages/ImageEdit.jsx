@@ -34,6 +34,8 @@ export default function ImageEdit() {
   const [isAddLabelModalOpen, setIsAddLabelModalOpen] = useState(false);
   
   const token = useSelector((state) => state.account.token);
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
   // Fetch image, annotations, and labels
   useEffect(() => {
     const fetchImage = async () => {
@@ -231,7 +233,7 @@ export default function ImageEdit() {
       >
         {image && (
           <ImageOverlay
-            url={`http://localhost:3001/${image.filePath}`}
+            url={`${backendUrl}/${image.filePath}`}
             bounds={bounds}
           />
         )}

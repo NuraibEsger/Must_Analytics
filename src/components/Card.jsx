@@ -9,6 +9,8 @@ import LazyImage from "./LazyImage";
 
 const Card = () => {
   const token = useSelector((state) => state.account.token);
+  const backendUrl = process.env.REACT_APP_BACKEND_URL
+
   const {
     data: projects,
     isLoading,
@@ -44,7 +46,7 @@ const Card = () => {
           <Link to={`/project/${project._id}`} className="w-full">
             <div className="p-6 h-full flex flex-col justify-between transition-transform transform hover:-translate-y-1 hover:shadow-lg bg-white rounded-lg shadow-md">
               <LazyImage
-                src={`http://localhost:3001/${project.images[0]?.filePath}`}
+                src={`${backendUrl}/${project.images[0]?.filePath}`}
                 alt={project.name}
                 width="100%"
                 height="200px"
