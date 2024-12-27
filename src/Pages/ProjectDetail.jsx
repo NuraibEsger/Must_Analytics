@@ -10,6 +10,7 @@ import {
   deleteProject,
   exportProject,
   getProjectImages,
+  getProjectStatistics, // Import the new service function
 } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
@@ -39,9 +40,21 @@ export default function ProjectDetail() {
   } = useQuery({
     queryKey: ["ProjectDetail", params.id],
     queryFn: () => getProjectsById(params.id, token),
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 10, // 10 minutes
+    onError: (error) => {
+      console.error("Error fetching project details:", error);
+      toast.error("Failed to load project details.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    },
   });
 
-  // Infinite Query for images
+  // Extract Project ID from projectData
+  const projectId = params.id || null;
+  
+  // Fetch Images using useInfiniteQuery
   const {
     data: imagesData,
     isLoading: imagesLoading,
@@ -56,7 +69,38 @@ export default function ProjectDetail() {
       getProjectImages(params.id, token, pageParam, 50),
     getNextPageParam: (lastPage) =>
       lastPage.hasNextPage ? lastPage.nextSkip : undefined,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 10, // 10 minutes
+    onError: (error) => {
+      console.error("Error fetching project images:", error);
+      toast.error("Failed to load project images.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    },
   });
+
+  // Fetch Project Statistics using the new object-based useQuery
+  const {
+    data: statisticsData,
+    isLoading: statisticsLoading,
+    isError: statisticsError,
+    error: statisticsErrorData,
+  } = useQuery({
+    queryKey: ["ProjectStatistics", projectId],
+    queryFn: () => getProjectStatistics(projectId, token),
+    enabled: !!projectId && !!token,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    cacheTime: 1000 * 60 * 10, // 10 minutes
+    onError: (error) => {
+      console.error("Error fetching project statistics:", error);
+      toast.error("Failed to load project statistics.", {
+        position: "top-right",
+        autoClose: 5000,
+      });
+    },
+  });
+
 
   const handleExport = async () => {
     try {
@@ -89,6 +133,7 @@ export default function ProjectDetail() {
       toast.success("Images uploaded successfully");
       // Invalidate and refetch the images query to include the new uploads
       queryClient.invalidateQueries(["ProjectImages", params.id]);
+      queryClient.invalidateQueries(["ProjectStatistics", projectId]); // Update statistics
     } catch (error) {
       console.error("Upload failed:", error);
       toast.error("Failed to upload images. Please try again.");
@@ -178,6 +223,7 @@ export default function ProjectDetail() {
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
               onClick={handleExport}
+              aria-label="Export Project"
             >
               <FiDownload />
               Export
@@ -195,6 +241,7 @@ export default function ProjectDetail() {
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
               onClick={handleEdit}
+              aria-label="Edit Project"
             >
               <FiEdit />
               Edit Project
@@ -202,6 +249,7 @@ export default function ProjectDetail() {
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
               onClick={handleRemove}
+              aria-label="Remove Project"
             >
               <FiTrash />
               Remove
@@ -292,6 +340,7 @@ export default function ProjectDetail() {
                 : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
             } transition-colors duration-200`}
             onClick={() => setActiveMenu("Filter")}
+            aria-label="Filter Menu"
           >
             Filter
           </button>
@@ -302,6 +351,7 @@ export default function ProjectDetail() {
                 : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
             } transition-colors duration-200`}
             onClick={() => setActiveMenu("Statistics")}
+            aria-label="Statistics Menu"
           >
             Statistics
           </button>
@@ -323,6 +373,7 @@ export default function ProjectDetail() {
                           : "bg-gray-200 text-gray-800 hover:bg-gray-300"
                       }`}
                     onClick={() => setSelectedColumns(num)}
+                    aria-label={`Set columns to ${num}`}
                   >
                     {num}
                   </button>
@@ -335,17 +386,36 @@ export default function ProjectDetail() {
           <>
             <div className="mb-6">
               <h3 className="font-semibold mb-2">Statistics</h3>
-              {/* Example Statistics Content */}
-              <div className="space-y-4">
-                <div>
-                  <h4 className="text-sm font-semibold">Total Annotations</h4>
+              {statisticsLoading ? (
+                <div className="flex justify-center items-center">
+                  <ClipLoader color="#000" size={30} />
                 </div>
-                <div>
-                  <h4 className="text-sm font-semibold">Labels Distribution</h4>
-                  <ul className="list-disc list-inside"></ul>
+              ) : statisticsError ? (
+                <div className="text-red-600">
+                  Error loading statistics: {statisticsErrorData?.message || "Unknown error"}
                 </div>
-                {/* Add More Statistics as Needed */}
-              </div>
+              ) : statisticsData ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between">
+                    <span>Total Labels:</span>
+                    <span>{statisticsData.totalLabels}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Images:</span>
+                    <span>{statisticsData.totalImages}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Labeled Images:</span>
+                    <span>{statisticsData.labeledImagesCount}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Unlabeled Images:</span>
+                    <span>{statisticsData.unlabeledImagesCount}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-gray-600">No statistics available.</div>
+              )}
             </div>
           </>
         )}

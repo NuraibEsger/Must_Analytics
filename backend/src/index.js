@@ -167,6 +167,44 @@ app.get('/project/:id', verifyToken, async (req, res) => {
   }
 });
 
+app.get('/project/:id/statistics', verifyToken, async (req, res) => {
+  try {
+    const projectId = req.params.id;
+
+    // Validate Project ID format (optional but recommended)
+    if (!projectId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: 'Invalid project ID format' });
+    }
+
+    // Fetch project details
+    const project = await Project.findById(projectId).select('labels images').exec();
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const totalLabels = project.labels.length;
+    const totalImages = project.images.length;
+
+    // Count images with at least one annotation
+    const labeledImagesCount = await Image.countDocuments({
+      _id: { $in: project.images },
+      annotations: { $exists: true, $not: { $size: 0 } },
+    });
+
+    const unlabeledImagesCount = totalImages - labeledImagesCount;
+
+    res.json({
+      totalLabels,
+      totalImages,
+      labeledImagesCount,
+      unlabeledImagesCount,
+    });
+  } catch (error) {
+    console.error('Error fetching project statistics:', error);
+    res.status(500).json({ message: 'Error fetching statistics', error: error.message });
+  }
+});
+
 // Get a project by ID along with associated images
 app.get('/project/:id/images', verifyToken, async (req, res) => {
   try {

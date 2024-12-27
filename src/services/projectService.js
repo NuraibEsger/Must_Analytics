@@ -55,11 +55,10 @@ export const uploadImages = (projectId, formData, token) => {
   return httpClient.post(`/project/${projectId}/upload-images`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'multipart/form-data',
+      "Content-Type": "multipart/form-data",
     },
   });
 };
-
 
 // Export a project by ID
 export const exportProject = async (projectId, token) => {
@@ -79,4 +78,14 @@ export const exportProject = async (projectId, token) => {
   } catch (error) {
     console.error("Error exporting project:", error);
   }
+};
+
+// Fetch project statistics
+export const getProjectStatistics = async (projectId, token) => {
+  const response = await httpClient.get(`/project/${projectId}/statistics`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return response.data;
 };
