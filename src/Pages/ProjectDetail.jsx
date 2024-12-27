@@ -101,7 +101,6 @@ export default function ProjectDetail() {
     },
   });
 
-
   const handleExport = async () => {
     try {
       await exportProject(params.id, token);
@@ -267,10 +266,12 @@ export default function ProjectDetail() {
         >
           {allImages.map((image, index) => {
             const isLast = index === allImages.length - 1;
+            const isLabeled = image.annotations && image.annotations.length > 0;
+
             return (
               <div
                 key={image._id}
-                className="bg-gray-100 rounded-lg shadow overflow-hidden flex items-center justify-center"
+                className="bg-gray-100 rounded-lg shadow overflow-hidden relative flex items-center justify-center"
                 ref={isLast ? lastImageRef : null}
               >
                 {/* If single column, use a square ratio container to create a square image */}
@@ -286,18 +287,56 @@ export default function ProjectDetail() {
                         className="absolute top-0 left-0 w-full h-full object-cover object-center"
                       />
                     </Link>
+                    {/* Overlay SVG Icon with Hover Effect if Image is Labeled */}
+                    {isLabeled && (
+                      <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full group">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          role="img"
+                          aria-label="Labeled Image"
+                          className="h-4 w-4 text-white"
+                        >
+                          <path d="M19,6H22V8H19V11H17V8H14V6H17V3H19V6M17,17V14H19V19H3V6H11V8H5V17H17Z"></path>
+                        </svg>
+                        {/* Tooltip with Animation */}
+                        <span className="absolute bottom-full right-1 mb-1 px-2 py-1 bg-[#2196f3] text-white text-xs rounded opacity-0 group-hover:opacity-100 transform translate-y-1 transition-opacity duration-200">
+                          Labeled
+                        </span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   // Multiple columns: keep a fixed height
-                  <Link to={`/edit-image/${image._id}`}>
-                    <img
-                      src={`${backendUrl}/${image.filePath}`}
-                      alt={image.fileName}
-                      className={`w-full ${
-                        selectedColumns === 5 ? "h-32" : "h-48"
-                      } object-cover object-center`}
-                    />
-                  </Link>
+                  <div className="relative w-full h-full">
+                    <Link to={`/edit-image/${image._id}`}>
+                      <img
+                        src={`${backendUrl}/${image.filePath}`}
+                        alt={image.fileName}
+                        className={`w-full ${
+                          selectedColumns === 5 ? "h-32" : "h-48"
+                        } object-cover object-center`}
+                      />
+                    </Link>
+                    {/* Overlay SVG Icon with Hover Effect if Image is Labeled */}
+                    {isLabeled && (
+                      <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full group">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          role="img"
+                          aria-label="Labeled Image"
+                          className="h-4 w-4 text-white"
+                        >
+                          <path d="M19,6H22V8H19V11H17V8H14V6H17V3H19V6M17,17V14H19V19H3V6H11V8H5V17H17Z"></path>
+                        </svg>
+                        {/* Tooltip with Animation */}
+                        <span className="absolute bottom-full right-1 mb-1 px-2 py-1 bg-[#2196f3] text-white text-xs rounded opacity-0 group-hover:opacity-100 transform translate-y-1 transition-opacity duration-200">
+                          Labeled
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             );
