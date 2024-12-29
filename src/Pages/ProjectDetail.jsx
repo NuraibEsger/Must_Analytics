@@ -18,6 +18,12 @@ import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
 import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 
+// Import Pie from react-chartjs-2 and register necessary Chart.js components
+import { Pie } from "react-chartjs-2";
+import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+
+Chart.register(ArcElement, Tooltip, Legend);
+
 export default function ProjectDetail() {
   const params = useParams();
   const navigate = useNavigate();
@@ -79,6 +85,8 @@ export default function ProjectDetail() {
       });
     },
   });
+  
+  console.log(imagesData)
 
   // Fetch Project Statistics using the new object-based useQuery
   const {
@@ -176,6 +184,53 @@ export default function ProjectDetail() {
     },
     [imagesLoading, isFetchingNextPage, hasNextPage, fetchNextPage]
   );
+
+  // Prepare data for the Pie Chart
+  const pieData = {
+    labels: ['Labeled Images', 'Unlabeled Images'],
+    datasets: [
+      {
+        label: '# of Images',
+        data: [
+          statisticsData?.labeledImagesCount || 0,
+          statisticsData?.unlabeledImagesCount || 0,
+        ],
+        backgroundColor: [
+          '#4caf50', // Green for labeled
+          '#f44336', // Red for unlabeled
+        ],
+        borderColor: [
+          '#ffffff', // White border
+          '#ffffff',
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  // Configuration options for the Pie Chart
+  const pieOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: {
+          boxWidth: 12,
+          padding: 15,
+        },
+      },
+      tooltip: {
+        enabled: true,
+        callbacks: {
+          label: function(context) {
+            const label = context.label || '';
+            const value = context.parsed || 0;
+            return `${label}: ${value}`;
+          }
+        }
+      },
+    },
+  };
 
   if (projectLoading) {
     return (
@@ -434,22 +489,14 @@ export default function ProjectDetail() {
                   Error loading statistics: {statisticsErrorData?.message || "Unknown error"}
                 </div>
               ) : statisticsData ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <span>Total Labels:</span>
-                    <span>{statisticsData.totalLabels}</span>
+                <div className="flex flex-col items-center">
+                  {/* Total Images Display */}
+                  <div className="mb-4 text-lg font-semibold">
+                    Total Images: {statisticsData.totalImages}
                   </div>
-                  <div className="flex justify-between">
-                    <span>Total Images:</span>
-                    <span>{statisticsData.totalImages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Labeled Images:</span>
-                    <span>{statisticsData.labeledImagesCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Unlabeled Images:</span>
-                    <span>{statisticsData.unlabeledImagesCount}</span>
+                  {/* Pie Chart */}
+                  <div className="w-48 h-48">
+                    <Pie data={pieData} options={pieOptions} />
                   </div>
                 </div>
               ) : (
