@@ -111,13 +111,32 @@ export default function ImageEdit() {
     setAnnotations(prevAnnotations => [...prevAnnotations, newAnnotation]);
   };
   
-  const handleLabelChange = (annotationId, labelId) => {
-    const updatedAnnotations = annotations.map((annotation) =>
-      annotation.id === annotationId ? { ...annotation, label: labelId } : annotation
+  const handleLabelChange = async (annotationId, labelId) => {
+    const selectedLabel = labels.find((label) => label._id === labelId);
+  
+    // Optimistic update
+    setAnnotations((prevAnnotations) =>
+      prevAnnotations.map((annotation) =>
+        annotation.id === annotationId
+          ? { ...annotation, label: selectedLabel }
+          : annotation
+      )
     );
-    setAnnotations(updatedAnnotations);
-    saveAnnotations(id, updatedAnnotations, token)
-      .catch((err) => console.error("Error updating annotations:", err));
+  
+    try {
+      await saveAnnotations(
+        id,
+        annotations.map((annotation) =>
+          annotation.id === annotationId
+            ? { ...annotation, label: selectedLabel }
+            : annotation
+        ),
+        token
+      );
+    } catch (error) {
+      console.error("Error updating annotations:", error);
+      toast.error("Failed to save changes.");
+    }
   };
 
   // Remove annotations
@@ -250,14 +269,15 @@ export default function ImageEdit() {
         <FeatureGroup ref={featureGroupRef}>
           {annotations.map((annotation) => {
             if (hiddenAnnotations.includes(annotation.id)) return null;
+            const labelColor = annotation.label?.color || "#3388ff";
+
             if (annotation.coordinates && annotation.coordinates.length > 0) {
-              // Render Polygon if coordinates exist
               return (
                 <Polygon
                   key={annotation.id}
                   positions={annotation.coordinates}
                   pathOptions={{
-                    color: "#3388ff",
+                    color: labelColor,
                     weight: 1,
                     opacity: 1,
                     fillOpacity: 0.2,
@@ -265,7 +285,6 @@ export default function ImageEdit() {
                 />
               );
             } else if (annotation.bounds) {
-              // Render Rectangle if bounds exist
               return (
                 <Rectangle
                   key={annotation.id}
@@ -274,7 +293,7 @@ export default function ImageEdit() {
                     annotation.bounds.northEast,
                   ]}
                   pathOptions={{
-                    color: "#3388ff",
+                    color: labelColor,
                     weight: 1,
                     opacity: 1,
                     fillOpacity: 0.2,
