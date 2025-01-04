@@ -89,3 +89,14 @@ export const getProjectStatistics = async (projectId, token) => {
   });
   return response.data;
 };
+
+// Send project invite
+export const sendInvite  = async (projectId, { email, role }, token) => {
+  return httpClient.post(`/api/projects/${projectId}/invite`, {email, role}, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};
+
+export const acceptInvite = async (token) => {
+  return httpClient.post(`/api/projects/accept-invite`, {token});
+}

@@ -110,6 +110,7 @@ const verifyToken = (req, res, next) => {
 
     // Attach user information to the request for use in other routes
     req.userId = decoded.id;
+    req.userEmail = decoded.email;
     next();
   });
 };
@@ -117,7 +118,11 @@ const verifyToken = (req, res, next) => {
 // Get all projects along with associated images
 app.get("/projects", verifyToken, async (req, res) => {
   try {
-    const projects = await Project.find().populate("images"); // Populates the images field with image details
+    const userEmail = req.userEmail;
+
+    const projects = await Project.find({
+      "members.email": userEmail, // user is any role, if you want 'editor' only you can add "members.role": "editor"
+    }).populate("images");
 
     res.json(projects);
   } catch (error) {
@@ -145,6 +150,7 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
 app.get('/project/:id', verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
+    const requestingUserEmail = req.userEmail;
 
     // Validate Project ID format (optional but recommended)
     if (!projectId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -153,11 +159,24 @@ app.get('/project/:id', verifyToken, async (req, res) => {
 
     // Fetch project details excluding images
     const project = await Project.findById(projectId)
-      .select('name description labels') // Select necessary fields
+      .select('name description labels members') // Select necessary fields
       .populate('labels'); // Populate labels if necessary
 
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
+    }
+
+    const isEditor = project.members.some(
+      (m) => m.email === requestingUserEmail && m.role === "editor"
+    );
+    const isVisitor = project.members.some(
+      (m) => m.email === requestingUserEmail && m.role === "visitor"
+    );
+
+    if (!isEditor && !isVisitor) {
+      return res.status(403).json({ 
+        message: 'You do not have permission to view this project.' 
+      });
     }
 
     res.json({ data: project });
@@ -287,7 +306,18 @@ app.post(
   upload.array("files", 100),
   async (req, res) => {
     try {
-      const { name, description, labels } = req.body;
+      let { name, description, labels, members } = req.body;
+
+      // 1. Parse members if it's a JSON string
+      let parsedMembers = [];
+      if (members) {
+        if (typeof members === "string") {
+          // e.g. "[{\"email\":\"nuraibesger@gmail.com\",\"role\":\"editor\"}]"
+          parsedMembers = JSON.parse(members);
+        } else if (Array.isArray(members)) {
+          parsedMembers = members; 
+        }
+      }
 
       // Validate required fields
       if (!name || !description) {
@@ -302,27 +332,28 @@ app.post(
           .json({ message: "At least one image file is required" });
       }
 
-      // Create project
-      const project = new Project({ name, description });
+      // 2. Create project with parsedMembers
+      const project = new Project({ 
+        name,
+        description,
+        members: parsedMembers, // Now an array of {email, role}
+      });
 
-      // Save each uploaded image
+      // 3. Save each uploaded image
       const imagePromises = req.files.map((file) => {
         const image = new Image({
           fileName: file.originalname,
-          filePath: `images/${encodeURIComponent(file.filename)}`, // Normalize path with forward slashes
+          filePath: `images/${encodeURIComponent(file.filename)}`,
         });
         return image.save();
       });
-
       const images = await Promise.all(imagePromises);
 
-      // Add images to the project
+      // 4. Add images to the project
       project.images = images.map((image) => image._id);
 
-      // Handle labels
+      // 5. Handle labels
       const labelArray = Array.isArray(labels) ? labels : [labels];
-
-      // Update labels if provided
       if (labelArray?.length > 0) {
         const labelIds = await Promise.all(
           labelArray.map(async (labelId) => {
@@ -334,17 +365,20 @@ app.post(
         project.labels = labelIds;
       }
 
+      // 6. Save project
       await project.save();
 
       res.json({ message: "Project and images saved successfully", project });
     } catch (error) {
       console.error("Upload Error: ", error.message);
-      res
-        .status(500)
-        .json({ message: "Error uploading project", error: error.message });
+      res.status(500).json({
+        message: "Error uploading project",
+        error: error.message
+      });
     }
   }
 );
+
 
 app.post(
   "/project/:id/upload-images",
@@ -637,6 +671,86 @@ app.post("/signUp", async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 });
+
+app.post('/:projectId/invite', async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { email, role } = req.body; // from the invite modal
+    const userEmail = req.user.email; // from auth (creator’s email)
+
+    // 1. Check if userEmail is project owner
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+    if (project.createdBy !== userEmail) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    // 2. Generate a token to encode the invite info
+    const inviteToken = jwt.sign(
+      { projectId, email, role }, 
+      JWT_SECRET, 
+      { expiresIn: '7d' } // token expires in 7 days
+    );
+    const inviteLink = `${process.env.CLIENT_URL}/accept-invite?token=${inviteToken}`;
+
+    // 3. Send email using nodemailer (SMTP)
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Project Invites" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: `Invitation to join ${project.name}`,
+      text: `Hello! You have been invited to join project "${project.name}" as a ${role}.
+             Click this link to accept: ${inviteLink}`,
+    });
+
+    return res.status(200).json({ message: 'Invite sent successfully.' });
+  } catch (err) {
+    console.error('Error sending invite:', err);
+    return res.status(500).json({ message: 'Error sending invite.' });
+  }
+});
+
+app.post('/accept-invite', async (req, res) => {
+  try {
+    const { token } = req.body; 
+    // decode token
+    const { projectId, email, role } = jwt.verify(token, JWT_SECRET);
+
+    // find project
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // add member if not existing
+    const existingMember = project.members.find(m => m.email === email);
+    if (existingMember) {
+      // update role if needed or do nothing
+      existingMember.role = role;
+    } else {
+      project.members.push({ email, role });
+    }
+    await project.save();
+
+    return res.status(200).json({ message: 'Invite accepted. Welcome to the project!' });
+  } catch (err) {
+    console.error('Error accepting invite:', err);
+    return res.status(400).json({ message: 'Invalid or expired invite link.' });
+  }
+});
+
+
 
 //#endregion
 

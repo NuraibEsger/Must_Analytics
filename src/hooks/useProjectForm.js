@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { postProject, updateProject } from "../services/projectService"; // Assuming updateProject is the API call for editing
+import { postProject, updateProject } from "../services/projectService"; 
 import { useFormik } from "formik";
 import { projectSchema } from "../validations/projectSchema";
 import { useSelector } from "react-redux";
@@ -9,15 +9,17 @@ export const useProjectForm = (toggleModal, initialData) => {
   const [files, setFiles] = useState([]);
   const queryClient = useQueryClient();
   const token = useSelector((state) => state.account.token);
-
-  console.log(initialData)
+  const email = useSelector((state) => state.account.email);
 
   const mutation = useMutation({
     mutationFn: (formData) => {
-      const projectId = initialData?.data?.id || initialData?.data?._id; // Use either id or _id
+      // If editing
+      const projectId = initialData?.data?.id || initialData?.data?._id; 
       if (projectId) {
         return updateProject(projectId, formData, token);
-      } else {
+      } 
+      // Else creating a new project
+      else {
         return postProject(formData, token);
       }
     },
@@ -35,39 +37,47 @@ export const useProjectForm = (toggleModal, initialData) => {
       name: initialData?.data?.name || "",
       description: initialData?.data?.description || "",
       labels: Array.isArray(initialData?.data?.labels) 
-        ? initialData?.data?.labels.map(label => label._id) 
-        : [], // Ensure it's an array
+        ? initialData?.data?.labels.map((label) => label._id)
+        : [],
+      // Make `members` an array so we can easily handle more than one member
+      members: [
+        {
+          email: email,  // The logged-in user's email
+          role: "editor" // Default role for creator
+        }
+      ],
       files: [],
     },
     validationSchema: projectSchema,
-    enableReinitialize: true, // This ensures the form resets when initialData changes
+    enableReinitialize: true,
     onSubmit: (values, { setSubmitting, resetForm }) => {
       const formData = new FormData();
     
-      // Append project name and description
+      // Append project name, description
       formData.append("name", values.name);
       formData.append("description", values.description);
-    
+
+      // Convert members array to JSON string
+      formData.append("members", JSON.stringify(values.members));
+
       // Append labels
       const labels = Array.isArray(values.labels) ? values.labels : [values.labels];
       labels.forEach((labelId) => {
         formData.append("labels", labelId);
       });
-    
+
       // Append new files
       Array.from(files).forEach((file) => {
         formData.append("files", file);
       });
-    
-      // If editing, you might want to handle existing files differently
-      // For example, sending an array of existing file IDs to retain them
+
+      // If editing, handle existing files
       if (initialData?.files) {
         initialData.files.forEach((file) => {
           formData.append("existingFiles", file._id);
         });
       }
-    
-      // Trigger mutation
+
       mutation.mutate(formData, {
         onSuccess: () => {
           setSubmitting(false);
@@ -79,7 +89,6 @@ export const useProjectForm = (toggleModal, initialData) => {
       });
     },
   });
-  
 
   const handleFileChange = (e) => {
     const filesArray = e.currentTarget.files;
@@ -87,7 +96,7 @@ export const useProjectForm = (toggleModal, initialData) => {
     setFiles(filesArray);
   };
 
-  // Set initial files when editing
+  // If editing, load existing files into state
   useEffect(() => {
     if (initialData && initialData.files) {
       setFiles(initialData.data.files);

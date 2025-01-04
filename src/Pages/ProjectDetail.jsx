@@ -2,7 +2,11 @@
 
 import React, { useState, useRef, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery, useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useInfiniteQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useSelector } from "react-redux";
 import {
   getProjectsById,
@@ -14,13 +18,13 @@ import {
 } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
-import { FiUpload, FiEdit, FiDownload, FiTrash } from "react-icons/fi";
+import { FiUpload, FiEdit, FiDownload, FiTrash, FiPlus } from "react-icons/fi";
 import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 
-// Import Pie from react-chartjs-2 and register necessary Chart.js components
 import { Pie } from "react-chartjs-2";
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Chart, ArcElement, Tooltip, Legend } from "chart.js";
+import InviteModal from "../components/InviteModal";
 
 Chart.register(ArcElement, Tooltip, Legend);
 
@@ -31,6 +35,7 @@ export default function ProjectDetail() {
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [initialData, setInitialData] = useState(null);
   const [activeMenu, setActiveMenu] = useState("Filter"); // New state for menu
 
@@ -59,7 +64,7 @@ export default function ProjectDetail() {
 
   // Extract Project ID from projectData
   const projectId = params.id || null;
-  
+
   // Fetch Images using useInfiniteQuery
   const {
     data: imagesData,
@@ -85,8 +90,8 @@ export default function ProjectDetail() {
       });
     },
   });
-  
-  console.log(imagesData)
+
+  console.log(imagesData);
 
   // Fetch Project Statistics using the new object-based useQuery
   const {
@@ -187,21 +192,21 @@ export default function ProjectDetail() {
 
   // Prepare data for the Pie Chart
   const pieData = {
-    labels: ['Labeled Images', 'Unlabeled Images'],
+    labels: ["Labeled Images", "Unlabeled Images"],
     datasets: [
       {
-        label: '# of Images',
+        label: "# of Images",
         data: [
           statisticsData?.labeledImagesCount || 0,
           statisticsData?.unlabeledImagesCount || 0,
         ],
         backgroundColor: [
-          '#4caf50', // Green for labeled
-          '#f44336', // Red for unlabeled
+          "#4caf50", // Green for labeled
+          "#f44336", // Red for unlabeled
         ],
         borderColor: [
-          '#ffffff', // White border
-          '#ffffff',
+          "#ffffff", // White border
+          "#ffffff",
         ],
         borderWidth: 1,
       },
@@ -213,7 +218,7 @@ export default function ProjectDetail() {
     responsive: true,
     plugins: {
       legend: {
-        position: 'bottom',
+        position: "bottom",
         labels: {
           boxWidth: 12,
           padding: 15,
@@ -222,12 +227,12 @@ export default function ProjectDetail() {
       tooltip: {
         enabled: true,
         callbacks: {
-          label: function(context) {
-            const label = context.label || '';
+          label: function (context) {
+            const label = context.label || "";
             const value = context.parsed || 0;
             return `${label}: ${value}`;
-          }
-        }
+          },
+        },
       },
     },
   };
@@ -274,6 +279,20 @@ export default function ProjectDetail() {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
           <div className="flex gap-3">
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              onClick={() => setIsInviteModalOpen(true)}
+            >
+              <FiPlus />
+              Invite
+            </button>
+
+            {isInviteModalOpen && (
+              <InviteModal
+                projectId={projectId}
+                onClose={() => setIsInviteModalOpen(false)}
+              />
+            )}
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
               onClick={handleExport}
@@ -486,7 +505,8 @@ export default function ProjectDetail() {
                 </div>
               ) : statisticsError ? (
                 <div className="text-red-600">
-                  Error loading statistics: {statisticsErrorData?.message || "Unknown error"}
+                  Error loading statistics:{" "}
+                  {statisticsErrorData?.message || "Unknown error"}
                 </div>
               ) : statisticsData ? (
                 <div className="flex flex-col items-center">
