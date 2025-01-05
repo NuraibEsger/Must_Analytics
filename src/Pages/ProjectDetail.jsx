@@ -40,6 +40,7 @@ export default function ProjectDetail() {
   const [activeMenu, setActiveMenu] = useState("Filter"); // New state for menu
 
   const token = useSelector((state) => state.account.token);
+  const currentUserEmail = useSelector((state) => state.account.email);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
   // Fetch project details (name, description, labels)
@@ -50,7 +51,7 @@ export default function ProjectDetail() {
     error: projectErrorData,
   } = useQuery({
     queryKey: ["ProjectDetail", params.id],
-    queryFn: () => getProjectsById(params.id, token),
+    queryFn: async () => await getProjectsById(params.id, token),
     staleTime: 1000 * 60 * 5, // 5 minutes
     cacheTime: 1000 * 60 * 10, // 10 minutes
     onError: (error) => {
@@ -61,6 +62,12 @@ export default function ProjectDetail() {
       });
     },
   });
+
+  const members = projectData?.data?.data?.members || [];
+
+  const isEditor = members.some(
+    (m) => m.email === currentUserEmail && m.role === "editor"
+  );
 
   // Extract Project ID from projectData
   const projectId = params.id || null;
@@ -277,15 +284,17 @@ export default function ProjectDetail() {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
           <div className="flex gap-3">
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={() => setIsInviteModalOpen(true)}
-            >
-              <FiPlus />
-              Invite
-            </button>
+            {isEditor && (
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={() => setIsInviteModalOpen(true)}
+              >
+                <FiPlus />
+                Invite
+              </button>
+            )}
 
-            {isInviteModalOpen && (
+            {isInviteModalOpen && isEditor && (
               <InviteModal
                 projectId={projectId}
                 onClose={() => setIsInviteModalOpen(false)}
@@ -299,32 +308,38 @@ export default function ProjectDetail() {
               <FiDownload />
               Export
             </button>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
-              <FiUpload />
-              {isUploading ? "Uploading..." : "Upload Data"}
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={handleEdit}
-              aria-label="Edit Project"
-            >
-              <FiEdit />
-              Edit Project
-            </button>
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={handleRemove}
-              aria-label="Remove Project"
-            >
-              <FiTrash />
-              Remove
-            </button>
+            {isEditor && (
+              <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
+                <FiUpload />
+                {isUploading ? "Uploading..." : "Upload Data"}
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            )}
+            {isEditor && (
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={handleEdit}
+                aria-label="Edit Project"
+              >
+                <FiEdit />
+                Edit Project
+              </button>
+            )}
+            {isEditor && (
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={handleRemove}
+                aria-label="Remove Project"
+              >
+                <FiTrash />
+                Remove
+              </button>
+            )}
           </div>
         </div>
         <p className="text-gray-600">{project.description}</p>

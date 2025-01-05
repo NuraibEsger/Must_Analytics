@@ -278,7 +278,7 @@ app.get("/image/:id", async (req, res) => {
 
     // Find the project that contains this image
     const project = await Project.findOne({ images: image._id })
-      .populate("labels")
+      .populate("labels members")
       .lean();
     if (!project) {
       return res
@@ -286,13 +286,15 @@ app.get("/image/:id", async (req, res) => {
         .json({ message: "Project not found for this image" });
     }
 
+    const members = project?.members??  [];
+
     // Ensure labels are returned as an array
     const labels = Array.isArray(project.labels)
       ? project.labels
       : [project.labels];
 
     // Return image and project labels
-    res.json({projectId: project._id, image, labels });
+    res.json({projectId: project._id, members, image, labels });
   } catch (error) {
     console.error("Error fetching image:", error);
     res.status(500).json({ message: "Error fetching image", error });
@@ -425,13 +427,13 @@ app.delete("/projects/:id", verifyToken, async (req, res) => {
     const { id } = req.params;
 
     // Find and delete the project
-    const project = await Project.findByIdAndDelete(id);
-
+    const project = await Project.findById(id);
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
     // Optionally, delete associated images
+    await Project.findByIdAndDelete(id);
     await Image.deleteMany({ _id: { $in: project.images } });
 
     res.json({ message: "Project deleted successfully" });
@@ -497,18 +499,6 @@ app.put(
     }
   }
 );
-
-app.get("/getUsers", (req, res) => {
-  res
-    .json(
-      UserModel.find({}).then(function (users) {
-        res.json(users);
-      })
-    )
-    .catch(function (err) {
-      console.log(err);
-    });
-});
 
 //#region Label
 
