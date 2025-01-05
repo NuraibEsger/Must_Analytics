@@ -91,8 +91,6 @@ export default function ProjectDetail() {
     },
   });
 
-  console.log(imagesData);
-
   // Fetch Project Statistics using the new object-based useQuery
   const {
     data: statisticsData,

@@ -12,6 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { ToastContainer } from "react-toastify";
 import NotFound from "./Pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
+import AcceptInvite from "./components/AcceptInvite";
 
 const router = createBrowserRouter([
   {
@@ -50,6 +51,14 @@ const router = createBrowserRouter([
             <ImageEdit />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "/accept-invite",
+        element: (
+          <ProtectedRoute>
+            <AcceptInvite />
+          </ProtectedRoute>
+        )
       },
       {
         path: "*",

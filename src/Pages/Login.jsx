@@ -14,7 +14,6 @@ export default function Login() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data) => {
-      console.log(data.token, data.email)
       dispatch(loginAction({ token: data.token, email: data.email }));
       navigate("/");
     },

@@ -18,7 +18,6 @@ export const postLabel = (data, token) => {
 
 // Create a label associated with a specific project
 export const postLabelByProject = (projectId, data, token) => {
-  console.log(projectId, data)
   return httpClient.post(`/projects/${projectId}/labels`, data, {
     headers: {
       Authorization: `Bearer ${token}`,

@@ -92,11 +92,11 @@ export const getProjectStatistics = async (projectId, token) => {
 
 // Send project invite
 export const sendInvite  = async (projectId, { email, role }, token) => {
-  return httpClient.post(`/api/projects/${projectId}/invite`, {email, role}, {
+  return httpClient.post(`/project/${projectId}/invite`, {email, role}, {
     headers: { Authorization: `Bearer ${token}` },
   });
 };
 
 export const acceptInvite = async (token) => {
-  return httpClient.post(`/api/projects/accept-invite`, {token});
+  return httpClient.post(`/project/accept-invite`, {token});
 }

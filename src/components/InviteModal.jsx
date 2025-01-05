@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-// import { sendProjectInvite } from "../services/projectService"; 
+import { sendInvite } from "../services/projectService"; 
 // (Uncomment and implement your real invite function)
 
 export default function InviteModal({ onClose, projectId }) {
@@ -12,7 +12,7 @@ export default function InviteModal({ onClose, projectId }) {
       setIsLoading(true);
       
       // Example: call your invite logic
-      // await sendProjectInvite(projectId, { email, role });
+      await sendInvite(projectId, { email, role });
       // For now, we’ll just mock the behavior:
       await new Promise((resolve) => setTimeout(resolve, 1000));
       

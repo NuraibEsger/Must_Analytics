@@ -9,7 +9,7 @@ const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
-const router = express.Router();
+const nodemailer = require("nodemailer");
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
@@ -672,18 +672,19 @@ app.post("/signUp", async (req, res) => {
   }
 });
 
-app.post('/:projectId/invite', async (req, res) => {
+app.post('/project/:projectId/invite', async (req, res) => {
   try {
     const { projectId } = req.params;
     const { email, role } = req.body; // from the invite modal
-    const userEmail = req.user.email; // from auth (creator’s email)
 
     // 1. Check if userEmail is project owner
     const project = await Project.findById(projectId);
     if (!project) {
       return res.status(404).json({ message: 'Project not found' });
     }
-    if (project.createdBy !== userEmail) {
+
+    const existingMember = project.members.find(m => m.email === email);
+    if (existingMember) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
@@ -693,21 +694,21 @@ app.post('/:projectId/invite', async (req, res) => {
       JWT_SECRET, 
       { expiresIn: '7d' } // token expires in 7 days
     );
-    const inviteLink = `${process.env.CLIENT_URL}/accept-invite?token=${inviteToken}`;
+    const inviteLink = `http://localhost:3000/accept-invite?token=${inviteToken}`;
 
     // 3. Send email using nodemailer (SMTP)
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
+      host: "smtp.gmail.com",
+      port: 587,
       secure: false,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: "nurayib.esger@gmail.com",
+        pass: "blhwtyuhkaidqpck",
       },
     });
 
     await transporter.sendMail({
-      from: `"Project Invites" <${process.env.SMTP_USER}>`,
+      from: `"Project Invites" nurayib.esger@gmail.com`,
       to: email,
       subject: `Invitation to join ${project.name}`,
       text: `Hello! You have been invited to join project "${project.name}" as a ${role}.
@@ -721,7 +722,7 @@ app.post('/:projectId/invite', async (req, res) => {
   }
 });
 
-app.post('/accept-invite', async (req, res) => {
+app.post('/project/accept-invite', async (req, res) => {
   try {
     const { token } = req.body; 
     // decode token
