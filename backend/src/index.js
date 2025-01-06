@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
+require("dotenv").config();
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
@@ -684,7 +685,9 @@ app.post('/project/:projectId/invite', async (req, res) => {
       JWT_SECRET, 
       { expiresIn: '7d' } // token expires in 7 days
     );
-    const inviteLink = `http://localhost:3000/accept-invite?token=${inviteToken}`;
+
+    const url = process.env.FRONT_END_URL;
+    const inviteLink = `${url}/accept-invite?token=${inviteToken}`;
 
     // 3. Send email using nodemailer (SMTP)
     const transporter = nodemailer.createTransport({

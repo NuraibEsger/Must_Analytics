@@ -1,12 +1,11 @@
-// src/Pages/ImageEdit.jsx
-
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import {
   MapContainer,
   ImageOverlay,
   FeatureGroup,
   Polygon,
   Rectangle,
+  useMap,
 } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
@@ -20,14 +19,29 @@ import { FiEye, FiTrash, FiBox, FiEyeOff, FiPlus } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import AddLabelModal from "../components/AddLabelModal";
 
+// Helper component to fit map bounds
+function FitBounds({ bounds }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (bounds) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+  }, [map, bounds]);
+
+  return null;
+}
+
 export default function ImageEdit() {
   const { id } = useParams();
   const featureGroupRef = useRef(null);
+  const mapRef = useRef(null); // Reference to the map instance
 
   // State variables
   const [annotations, setAnnotations] = useState([]);
   const [hiddenAnnotations, setHiddenAnnotations] = useState([]);
   const [image, setImage] = useState(null);
+  const [imageDimensions, setImageDimensions] = useState(null); // Image natural dimensions
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -39,27 +53,43 @@ export default function ImageEdit() {
   const currentUserEmail = useSelector((state) => state.account.email);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
-  // We'll store the user's role here, or at least a boolean:
+  // User's role
   const [isEditor, setIsEditor] = useState(false);
 
-  const [projectId, setProjectId] = useState(null); // Add projectId state
+  const [projectId, setProjectId] = useState(null); // Project ID
+
+  // Fixed MapContainer dimensions
+  const mapWidth = 848;
+  const mapHeight = 858;
 
   // Fetch image, annotations, and labels
   useEffect(() => {
     const fetchImage = async () => {
       try {
         const response = await getImageById(id, token);
-        // { image: {...}, labels: [...], projectId: "..."}
+        // Expected response: { image: {...}, labels: [...], projectId: "...", members: [...] }
         if (response.image) {
           setImage(response.image);
           setAnnotations(response.image.annotations || []);
           setLabels(response.labels || []);
+
+          // Load the image to get its natural dimensions
+          const img = new Image();
+          img.onload = () => {
+            setImageDimensions({ width: img.width, height: img.height });
+          };
+          img.onerror = (err) => {
+            console.error("Error loading image for dimensions:", err);
+            setError(err);
+            setIsError(true);
+          };
+          img.src = `${backendUrl}/${response.image.filePath}`;
         }
         if (response.projectId) {
           setProjectId(response.projectId);
           const members = response.members;
           console.log(members);
-          // Now you can find user’s membership
+          // Find user’s membership
           const foundMember = members.find(
             (m) => m.email === currentUserEmail
           );
@@ -76,7 +106,7 @@ export default function ImageEdit() {
       }
     };
     fetchImage();
-  }, [id, token, currentUserEmail]);
+  }, [id, token, currentUserEmail, backendUrl]);
 
   const toggleAddLabelModal = () => {
     setIsAddLabelModalOpen(!isAddLabelModalOpen);
@@ -193,13 +223,55 @@ export default function ImageEdit() {
     );
   };
 
-  if (isLoading) {
+  // Calculate scaled image dimensions based on MapContainer size
+  const scaledDimensions = useMemo(() => {
+    if (!imageDimensions) return null;
+
+    const { width, height } = imageDimensions;
+    const containerWidth = mapWidth;
+    const containerHeight = mapHeight;
+
+    let scale = 1;
+
+    if (width > containerWidth || height > containerHeight) {
+      const scaleX = containerWidth / width;
+      const scaleY = containerHeight / height;
+      scale = Math.min(scaleX, scaleY);
+    }
+
+    return {
+      width: width * scale,
+      height: height * scale,
+    };
+  }, [imageDimensions, mapWidth, mapHeight]);
+
+  // Define bounds based on scaled dimensions
+  const bounds = useMemo(() => {
+    if (!scaledDimensions) return null;
+    return [
+      [0, 0], // Bottom-left corner
+      [scaledDimensions.height, scaledDimensions.width], // Top-right corner
+    ];
+  }, [scaledDimensions]);
+
+  // Center the map based on scaled dimensions
+  const center = useMemo(() => {
+    if (!scaledDimensions) return [0, 0];
+    return [
+      scaledDimensions.height / 2,
+      scaledDimensions.width / 2,
+    ];
+  }, [scaledDimensions]);
+
+  if (isLoading || !imageDimensions) {
     return (
       <div className="flex justify-center items-center h-full w-full">
-        Loading image...
+        <ClipLoader color="#000" size={50} />
+        <span className="ml-2">Loading image...</span>
       </div>
     );
   }
+
   if (isError) {
     return (
       <div className="flex justify-center items-center h-full w-full">
@@ -207,11 +279,6 @@ export default function ImageEdit() {
       </div>
     );
   }
-
-  const bounds = [
-    [0, 0],
-    [500, 500],
-  ];
 
   return (
     <div className="flex h-screen">
@@ -307,22 +374,28 @@ export default function ImageEdit() {
       </div>
 
       {/* Map Container */}
-      <MapContainer
-        style={{ height: "100%", flex: 1 }}
-        center={[250, 250]}
-        zoom={1}
-        crs={L.CRS.Simple}
-        attributionControl={false}
-      >
-        {image && (
-          <ImageOverlay
-            url={`${backendUrl}/${image.filePath}`}
-            bounds={bounds}
-          />
-        )}
+      <div className="flex-1 relative">
+        <MapContainer
+          style={{
+            width: '100%',
+            height: '100%',
+          }}
+          center={center}
+          zoom={1}
+          crs={L.CRS.Simple}
+          attributionControl={false}
+          whenCreated={(mapInstance) => {
+            mapRef.current = mapInstance;
+          }}
+          maxZoom={4} // Optional: Limit zoom level based on image size
+        >
+          {/* Fit map to bounds */}
+          <FitBounds bounds={bounds} />
 
-        {/* If user's role is visitor, don't show FeatureGroup with EditControl */}
-        
+          {/* Image Overlay */}
+          <ImageOverlay url={`${backendUrl}/${image.filePath}`} bounds={bounds} />
+
+          {/* Annotations with Editing Controls */}
           <FeatureGroup ref={featureGroupRef}>
             {annotations.map((annotation) => {
               if (hiddenAnnotations.includes(annotation.id)) return null;
@@ -362,63 +435,66 @@ export default function ImageEdit() {
             })}
             {isEditor && (
               <EditControl
-              position="topright"
-              onCreated={handleCreated}
-              draw={{
-                rectangle: true,
-                circle: false,
-                marker: false,
-                polygon: { shapeOptions: { weight: 1 } },
-                circlemarker: false,
-                polyline: false,
-              }}
-              edit={{
-                edit: true,
-                remove: false,
-              }}
-            />
+                position="topright"
+                onCreated={handleCreated}
+                draw={{
+                  rectangle: true,
+                  circle: false,
+                  marker: false,
+                  polygon: { shapeOptions: { weight: 1 } },
+                  circlemarker: false,
+                  polyline: false,
+                }}
+                edit={{
+                  edit: true,
+                  remove: false,
+                }}
+              />
             )}
           </FeatureGroup>
 
-        {/* If user is visitor, show only the existing polygons/rectangles but no draw controls */}
-          <FeatureGroup>
-            {annotations.map((annotation) => {
-              if (hiddenAnnotations.includes(annotation.id)) return null;
-              const labelColor = annotation.label?.color || "#3388ff";
-              if (annotation.coordinates && annotation.coordinates.length > 0) {
-                return (
-                  <Polygon
-                    key={annotation.id}
-                    positions={annotation.coordinates}
-                    pathOptions={{
-                      color: labelColor,
-                      weight: 1,
-                      opacity: 1,
-                      fillOpacity: 0.2,
-                    }}
-                  />
-                );
-              } else if (annotation.bounds) {
-                return (
-                  <Rectangle
-                    key={annotation.id}
-                    bounds={[
-                      annotation.bounds.southWest,
-                      annotation.bounds.northEast,
-                    ]}
-                    pathOptions={{
-                      color: labelColor,
-                      weight: 1,
-                      opacity: 1,
-                      fillOpacity: 0.2,
-                    }}
-                  />
-                );
-              }
-              return null;
-            })}
-          </FeatureGroup>
-      </MapContainer>
+          {/* Annotations without Editing Controls (for visitors) */}
+          {!isEditor && (
+            <FeatureGroup>
+              {annotations.map((annotation) => {
+                if (hiddenAnnotations.includes(annotation.id)) return null;
+                const labelColor = annotation.label?.color || "#3388ff";
+                if (annotation.coordinates && annotation.coordinates.length > 0) {
+                  return (
+                    <Polygon
+                      key={annotation.id}
+                      positions={annotation.coordinates}
+                      pathOptions={{
+                        color: labelColor,
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.2,
+                      }}
+                    />
+                  );
+                } else if (annotation.bounds) {
+                  return (
+                    <Rectangle
+                      key={annotation.id}
+                      bounds={[
+                        annotation.bounds.southWest,
+                        annotation.bounds.northEast,
+                      ]}
+                      pathOptions={{
+                        color: labelColor,
+                        weight: 1,
+                        opacity: 1,
+                        fillOpacity: 0.2,
+                      }}
+                    />
+                  );
+                }
+                return null;
+              })}
+            </FeatureGroup>
+          )}
+        </MapContainer>
+      </div>
 
       {/* AddLabelModal */}
       <AddLabelModal
