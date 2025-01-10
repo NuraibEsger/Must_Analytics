@@ -1,7 +1,7 @@
 // src/components/Card.jsx
 
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "react-query";
 import { getProjects } from "../services/projectService";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";

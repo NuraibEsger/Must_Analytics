@@ -6,7 +6,7 @@ import {
   useQuery,
   useInfiniteQuery,
   useQueryClient,
-} from "@tanstack/react-query";
+} from "react-query"; // Import the new hooks
 import { useSelector } from "react-redux";
 import {
   getProjectsById,

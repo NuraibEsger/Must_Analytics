@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react"; 
 import {
   MapContainer,
   ImageOverlay,
@@ -18,6 +18,8 @@ import { ClipLoader } from "react-spinners";
 import { FiEye, FiTrash, FiBox, FiEyeOff, FiPlus } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import AddLabelModal from "../components/AddLabelModal";
+import { useQuery, useMutation, useQueryClient } from "react-query";
+import { useDebouncedCallback } from "use-debounce";
 
 // Helper component to fit map bounds
 function FitBounds({ bounds }) {
@@ -35,17 +37,10 @@ function FitBounds({ bounds }) {
 export default function ImageEdit() {
   const { id } = useParams();
   const featureGroupRef = useRef(null);
-  const mapRef = useRef(null); // Reference to the map instance
-
   // State variables
   const [annotations, setAnnotations] = useState([]);
   const [hiddenAnnotations, setHiddenAnnotations] = useState([]);
-  const [image, setImage] = useState(null);
   const [imageDimensions, setImageDimensions] = useState(null); // Image natural dimensions
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isError, setIsError] = useState(false);
-  const [error, setError] = useState(null);
   const [labels, setLabels] = useState([]);
   const [isAddLabelModalOpen, setIsAddLabelModalOpen] = useState(false);
 
@@ -62,81 +57,83 @@ export default function ImageEdit() {
   const mapWidth = 848;
   const mapHeight = 858;
 
-  // Fetch image, annotations, and labels
-  useEffect(() => {
-    const fetchImage = async () => {
-      try {
-        const response = await getImageById(id, token);
-        // Expected response: { image: {...}, labels: [...], projectId: "...", members: [...] }
-        if (response.image) {
-          setImage(response.image);
-          setAnnotations(response.image.annotations || []);
-          setLabels(response.labels || []);
+  const queryClient = useQueryClient();
 
-          // Load the image to get its natural dimensions
-          const img = new Image();
-          img.onload = () => {
-            setImageDimensions({ width: img.width, height: img.height });
-          };
-          img.onerror = (err) => {
-            console.error("Error loading image for dimensions:", err);
-            setError(err);
-            setIsError(true);
-          };
-          img.src = `${backendUrl}/${response.image.filePath}`;
-        }
-        if (response.projectId) {
-          setProjectId(response.projectId);
-          const members = response.members;
-          console.log(members);
-          // Find user’s membership
-          const foundMember = members.find(
-            (m) => m.email === currentUserEmail
-          );
-          if (foundMember?.role === "editor") {
-            setIsEditor(true);
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching image:", err);
-        setError(err);
-        setIsError(true);
-      } finally {
-        setIsLoading(false);
+  // Fetch image, annotations, and labels using useQuery
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["image", id],
+    queryFn: () => getImageById(id, token),
+    onSuccess: (data) => {
+      if (data.image) {
+        setAnnotations(data.image.annotations || []);
+        setLabels(data.labels || []);
+
+        // Load the image to get its natural dimensions
+        const img = new Image();
+        img.onload = () => {
+          setImageDimensions({ width: img.width, height: img.height });
+        };
+        img.onerror = (err) => {
+          console.error("Error loading image for dimensions:", err);
+          toast.error("Error loading image dimensions.");
+        };
+        img.src = `${backendUrl}/${data.image.filePath}`;
       }
-    };
-    fetchImage();
-  }, [id, token, currentUserEmail, backendUrl]);
+      if (data.projectId) {
+        setProjectId(data.projectId);
+        const members = data.members;
+        // Find user’s membership
+        const foundMember = members.find(
+          (m) => m.email === currentUserEmail
+        );
+        if (foundMember?.role === "editor") {
+          setIsEditor(true);
+        }
+      }
+    },
+    onError: (err) => {
+      console.error("Error fetching image:", err);
+      toast.error("Error fetching image data.");
+    },
+    // Optional: Configure refetch behavior
+    // refetchOnWindowFocus: false,
+  });
 
   const toggleAddLabelModal = () => {
     setIsAddLabelModalOpen(!isAddLabelModalOpen);
   };
 
-  const handleSaveClick = async () => {
-    try {
-      setIsSaving(true);
-      await saveAnnotations(id, annotations, token);
-      toast.info("Annotations saved successfully!", {
+  // Define a mutation for saving annotations
+  const mutation = useMutation({
+    mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations, token),
+    onSuccess: () => {
+      toast.success("Annotations saved successfully!", {
         position: "top-right",
         autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
       });
-    } catch (err) {
+      // Optionally, invalidate or refetch queries if needed
+      queryClient.invalidateQueries({ queryKey: ["image", id] });
+
+      if (projectId) {
+        queryClient.invalidateQueries({ queryKey: ["ProjectStatistics", projectId] });
+      }
+    },
+    onError: (err) => {
       console.error("Error saving annotations:", err);
-      toast.error("Failed to save annotations.", {
-        position: "top-right",
-        autoClose: 5000,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+      toast.error("Failed to save annotations.");
+    },
+  });
+
+  // Define a debounced version of the mutate function
+  const debouncedSave = useDebouncedCallback(
+    (newAnnotations) => {
+      mutation.mutate(newAnnotations);
+    },
+    500 // 500ms delay
+  );
 
   // Handle new shapes
   const handleCreated = (e) => {
-    // If isEditor is false, do not let them create shapes
     if (!isEditor) return;
     const { layerType, layer } = e;
     let newAnnotation;
@@ -165,39 +162,27 @@ export default function ImageEdit() {
       };
     }
 
-    setAnnotations((prevAnnotations) => [...prevAnnotations, newAnnotation]);
+    const updatedAnnotations = [...annotations, newAnnotation];
+    setAnnotations(updatedAnnotations);
+
+    // Trigger mutation to save annotations
+    debouncedSave(updatedAnnotations);
   };
 
   // Handle label changes
-  const handleLabelChange = async (annotationId, labelId) => {
-    // If not editor, do nothing
+  const handleLabelChange = (annotationId, labelId) => {
     if (!isEditor) return;
 
     const selectedLabel = labels.find((label) => label._id === labelId);
-
-    // Optimistic update
-    setAnnotations((prevAnnotations) =>
-      prevAnnotations.map((annotation) =>
-        annotation.id === annotationId
-          ? { ...annotation, label: selectedLabel }
-          : annotation
-      )
+    const updatedAnnotations = annotations.map((annotation) =>
+      annotation.id === annotationId
+        ? { ...annotation, label: selectedLabel }
+        : annotation
     );
+    setAnnotations(updatedAnnotations);
 
-    try {
-      await saveAnnotations(
-        id,
-        annotations.map((annotation) =>
-          annotation.id === annotationId
-            ? { ...annotation, label: selectedLabel }
-            : annotation
-        ),
-        token
-      );
-    } catch (error) {
-      console.error("Error updating annotations:", error);
-      toast.error("Failed to save changes.");
-    }
+    // Trigger mutation to save annotations
+    debouncedSave(updatedAnnotations);
   };
 
   // Remove annotations
@@ -208,10 +193,8 @@ export default function ImageEdit() {
     );
     setAnnotations(updatedAnnotations);
 
-    // Persist updated annotations to the backend
-    saveAnnotations(id, updatedAnnotations, token).catch((err) =>
-      console.error("Error updating annotations:", err)
-    );
+    // Trigger mutation to save annotations
+    debouncedSave(updatedAnnotations);
   };
 
   // Toggle annotation visibility
@@ -257,12 +240,10 @@ export default function ImageEdit() {
   // Center the map based on scaled dimensions
   const center = useMemo(() => {
     if (!scaledDimensions) return [0, 0];
-    return [
-      scaledDimensions.height / 2,
-      scaledDimensions.width / 2,
-    ];
+    return [scaledDimensions.height / 2, scaledDimensions.width / 2];
   }, [scaledDimensions]);
 
+  // Handle image loading state
   if (isLoading || !imageDimensions) {
     return (
       <div className="flex justify-center items-center h-full w-full">
@@ -272,6 +253,7 @@ export default function ImageEdit() {
     );
   }
 
+  // Handle error state
   if (isError) {
     return (
       <div className="flex justify-center items-center h-full w-full">
@@ -286,17 +268,7 @@ export default function ImageEdit() {
       <div className="w-96 bg-white shadow-lg p-4 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
           Annotations ({annotations.length})
-          {isEditor && (
-            <button
-              className="text-blue-500 hover:text-blue-700 flex items-center space-x-1"
-              onClick={handleSaveClick}
-              disabled={isSaving}
-              aria-label="Save Annotations"
-            >
-              <FiBox />
-              <span>Save</span>
-            </button>
-          )}
+          {/* Removed Save Button */}
           {isEditor && (
             <button
               className="text-green-500 hover:text-green-700 flex items-center space-x-1"
@@ -309,8 +281,8 @@ export default function ImageEdit() {
           )}
         </h3>
 
-        {/* Loading indicator */}
-        {isSaving && (
+        {/* Loading indicator for save operation */}
+        {mutation.isLoading && (
           <div className="flex justify-center items-center mt-2">
             <ClipLoader color="#000" size={20} />
           </div>
@@ -377,23 +349,20 @@ export default function ImageEdit() {
       <div className="flex-1 relative">
         <MapContainer
           style={{
-            width: '100%',
-            height: '100%',
+            width: `${mapWidth}px`,
+            height: `${mapHeight}px`,
           }}
           center={center}
           zoom={1}
           crs={L.CRS.Simple}
           attributionControl={false}
-          whenCreated={(mapInstance) => {
-            mapRef.current = mapInstance;
-          }}
           maxZoom={4} // Optional: Limit zoom level based on image size
         >
           {/* Fit map to bounds */}
           <FitBounds bounds={bounds} />
 
           {/* Image Overlay */}
-          <ImageOverlay url={`${backendUrl}/${image.filePath}`} bounds={bounds} />
+          <ImageOverlay url={`${backendUrl}/${data.image.filePath}`} bounds={bounds} />
 
           {/* Annotations with Editing Controls */}
           <FeatureGroup ref={featureGroupRef}>

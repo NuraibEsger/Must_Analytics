@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient } from "react-query";
 import Axios from "axios";
 import { store } from "../redux/store";
 import { logoutAction } from "../redux/slices/accountSlice";

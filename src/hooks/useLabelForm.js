@@ -1,6 +1,6 @@
 // src/hooks/useLabelForm.js
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "react-query";
 import { useFormik } from "formik";
 import { labelSchema } from "../validations/labelSchema";
 import { postLabel, postLabelByProject } from "../services/labelService";

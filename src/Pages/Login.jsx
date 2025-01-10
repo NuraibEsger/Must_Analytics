@@ -2,7 +2,7 @@ import React from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation } from "react-query";
 import { useDispatch } from "react-redux";
 import { login } from "../services/authService";
 import { loginAction } from "../redux/slices/accountSlice";

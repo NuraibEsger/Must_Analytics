@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useProjectForm } from "../hooks/useProjectForm";
 import AddLabelModal from "./AddLabelModal";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery } from "react-query";
 import { getLabels } from "../services/labelService";
 import Select from "react-select";
 import { useSelector } from "react-redux";

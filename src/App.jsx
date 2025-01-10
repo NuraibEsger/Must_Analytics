@@ -1,7 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import Root from "./layout/Root";
 import Home from "./Pages/Home";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "react-query";
 import { queryClient } from "./utils/httpClient";
 import ProjectDetail from "./Pages/ProjectDetail";
 import ImageEdit from "./Pages/ImageEdit";

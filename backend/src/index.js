@@ -11,6 +11,7 @@ const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
 require("dotenv").config();
+const frontUrl = process.env.FRONT_END_URL;
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
 
@@ -323,7 +324,7 @@ app.post(
       }
 
       // Validate required fields
-      if (!name || !description) {
+      if (!name) {
         return res
           .status(400)
           .json({ message: "Name and description are required" });
@@ -460,7 +461,7 @@ app.put(
       }
 
       project.name = name || project.name;
-      project.description = description || project.description;
+      project.description = description
 
       // Handle new images if uploaded
       if (req.files?.length) {
@@ -686,8 +687,7 @@ app.post('/project/:projectId/invite', async (req, res) => {
       { expiresIn: '7d' } // token expires in 7 days
     );
 
-    const url = process.env.FRONT_END_URL;
-    const inviteLink = `${url}/accept-invite?token=${inviteToken}`;
+    const inviteLink = `${frontUrl}/accept-invite?token=${inviteToken}`;
 
     // 3. Send email using nodemailer (SMTP)
     const transporter = nodemailer.createTransport({
