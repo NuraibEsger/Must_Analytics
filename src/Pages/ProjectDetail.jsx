@@ -278,7 +278,7 @@ export default function ProjectDetail() {
   const allImages = imagesData?.pages?.flatMap((page) => page.images) || [];
 
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-4 container mx-auto p-4">
       {/* Main Content */}
       <div className="flex-1 flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg">
         <div className="flex justify-between items-center">

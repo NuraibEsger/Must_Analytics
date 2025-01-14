@@ -165,11 +165,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             </button>
           </div>
 
-          <AddLabelModal
-            isOpen={isModalOpen}
-            onClose={() => setModalOpen(false)}
-            toggleLabelModal={toggleLabelModal}
-          />
+          
 
           <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">
@@ -204,6 +200,11 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             </button>
           </div>
         </form>
+        <AddLabelModal
+            isOpen={isModalOpen}
+            onClose={() => setModalOpen(false)}
+            toggleLabelModal={toggleLabelModal}
+          />
       </div>
     </div>
   );

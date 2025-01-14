@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const { ref } = require("yup");
 
 mongoose
   .connect("mongodb://localhost:27017/Must_Analytics")
@@ -7,9 +6,10 @@ mongoose
     console.log("mongodb connected");
   })
   .catch((err) => {
-    console.log(err);
+    console.error("MongoDB connection error:", err);
   });
 
+/** User Schema **/
 const UserSchema = new mongoose.Schema({
   email: {
     type: String,
@@ -22,7 +22,7 @@ const UserSchema = new mongoose.Schema({
   },
 });
 
-// Image Schema for storing uploaded images
+/** Image Schema for storing uploaded images **/
 const ImageSchema = new mongoose.Schema(
   {
     fileName: {
@@ -33,41 +33,48 @@ const ImageSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    // One-to-many relationship: an image may have multiple annotations
     annotations: [
-      {
-        id: { type: Number, required: true },
-        name: { type: String, required: true },
-        coordinates: [
-          {
-            type: [[Number]], // This is an array of arrays of numbers for lat/lng
-          },
-        ],
-        bounds: {
-          southWest: { type: [Number] }, // Array [lat, lng]
-          northEast: { type: [Number] }, // Array [lat, lng]
-        },
-        label: { type: mongoose.Schema.Types.ObjectId, ref: "Label" }, // Add reference to Label collection
-      },
+      { type: mongoose.Schema.Types.ObjectId, ref: "Annotation" }
     ],
   },
   { timestamps: true }
 );
 
-/// Label Schema
+/** Annotation Schema – An annotation is now a separate collection **/
+const AnnotationSchema = new mongoose.Schema(
+  {
+    // Reference back to the related image
+    image: { type: mongoose.Schema.Types.ObjectId, ref: "Image", required: true },
+    coordinates: [
+      {
+        type: [[Number]], 
+      },
+    ],
+    bounds: {
+      southWest: { type: [Number] },
+      northEast: { type: [Number] },
+    },
+    label: { type: mongoose.Schema.Types.ObjectId, ref: "Label" },
+  },
+  { timestamps: true }
+);
+
+/** Label Schema **/
 const LabelSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
   },
   color: {
-    type: String, // Hex code or any string representation of color
+    type: String, // e.g. a hex color string
     required: true,
   },
-
+  // Optional: store references to projects that use this label
   projects: [{ type: mongoose.Schema.Types.ObjectId, ref: "Project" }],
 });
 
-// Project Schema with one-to-many relationship to Image
+/** Project Schema with one-to-many relationships to Image and Label **/
 const ProjectSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -87,12 +94,17 @@ const ProjectSchema = new mongoose.Schema({
   created_at: { type: Date, required: true, default: Date.now },
 });
 
-// Models
-const Project = mongoose.model("Project", ProjectSchema);
-const Image = mongoose.model("Image", ImageSchema);
-const Label = mongoose.model("Label", LabelSchema);
+/** Models **/
 const User = mongoose.model("User", UserSchema);
+const Image = mongoose.model("Image", ImageSchema);
+const Annotation = mongoose.model("Annotation", AnnotationSchema);
+const Label = mongoose.model("Label", LabelSchema);
+const Project = mongoose.model("Project", ProjectSchema);
 
+/**
+ * getProjectById
+ * This helper function finds a project by its ID and populates its images and labels.
+ */
 const getProjectById = async (projectId) => {
   try {
     const project = await Project.findById(projectId)
@@ -101,8 +113,8 @@ const getProjectById = async (projectId) => {
     return project;
   } catch (error) {
     console.error("Error fetching project by ID:", error);
-    throw error; // Re-throw the error to handle it in the route
+    throw error; // Re-throw the error to be handled by route middleware or caller
   }
 };
 
-module.exports = { User, Project, Image, Label, getProjectById };
+module.exports = { User, Project, Image, Label, Annotation, getProjectById };

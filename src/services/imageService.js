@@ -12,9 +12,7 @@ export const getImageById = async (id) => {
 
 export const saveAnnotations = async (imageId, annotations) => {
   try {
-    return httpClient.post(`/image/${imageId}/annotations`, {
-      annotations,
-    });
+    return httpClient.post(`/image/${imageId}/annotations`, { annotations });
   } catch (error) {
     console.error("Error saving annotations:", error);
     throw error;

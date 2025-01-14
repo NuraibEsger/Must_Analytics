@@ -4,7 +4,7 @@ const hbs = require("hbs");
 const collection = require("./mongodb");
 const cors = require("cors");
 const multer = require("multer");
-const { User, Project, Image, Label } = require("./mongodb"); // Import the new models
+const { User, Project, Image, Label, Annotation } = require("./mongodb"); // Import the new models
 const fs = require("fs");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -270,7 +270,8 @@ app.get("/image/:id", async (req, res) => {
   try {
     const image = await Image.findById(id)
       .populate({
-        path: "annotations.label",
+        path: "annotations",
+        populate: { path: "label" },
       })
       .lean();
 
@@ -282,6 +283,7 @@ app.get("/image/:id", async (req, res) => {
     const project = await Project.findOne({ images: image._id })
       .populate("labels members")
       .lean();
+
     if (!project) {
       return res
         .status(404)
@@ -573,26 +575,51 @@ app.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
 });
 
 app.post("/image/:id/annotations", async (req, res) => {
-  const { id } = req.params;
-  const { annotations } = req.body;
+  const { id: imageId } = req.params;
+  let { annotations } = req.body; // Expecting an array of annotation objects
+
+  // Filter out any null or undefined annotations
+  annotations = annotations.filter(ann => ann != null);
 
   try {
-    const image = await Image.findByIdAndUpdate(
-      id,
-      { annotations },
-      { new: true }
-    ).populate("annotations.label"); // Populate label details
-
+    // Verify that the image exists
+    const image = await Image.findById(imageId);
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
 
-    res.json({ message: "Annotations saved successfully", image });
+    // Create annotations and capture their IDs
+    const annotationDocs = await Promise.all(
+      annotations.map(async (ann) => {
+        if (!ann._id) {
+          const annotation = new Annotation({ ...ann, image: imageId });
+          await annotation.save();
+          return annotation._id;
+        } else {
+          await Annotation.findByIdAndUpdate(ann._id, ann);
+          return ann._id;
+        }
+      })
+    );
+
+    // Update image's annotation array – replace with the saved IDs
+    image.annotations = annotationDocs;
+    const updatedImage = await image.save();
+
+    // Populate the newly created annotations (if you want label details populated as well)
+    await updatedImage.populate({
+      path: "annotations",
+      populate: { path: "label" }
+    });
+    
+
+    res.json({ message: "Annotations saved successfully", image: updatedImage });
   } catch (error) {
     console.error("Error saving annotations:", error);
     res.status(500).json({ message: "Error saving annotations", error });
   }
 });
+
 
 //#endregion
 

@@ -24,8 +24,8 @@ export const useProjectForm = (toggleModal, initialData) => {
       }
     },
     onSuccess: () => {
+      queryClient.invalidateQueries(["Projects"]);
       toggleModal();
-      queryClient.invalidateQueries(["projects"]);
     },
     onError: (error) => {
       console.error("Error uploading project: ", error);
