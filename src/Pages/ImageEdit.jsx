@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Stage, Layer, Image as KonvaImage, Rect, Line, Circle } from "react-konva";
 import useImage from "use-image";
 import { useParams } from "react-router-dom";
@@ -162,6 +162,38 @@ export default function ImageEdit() {
 
   // Konva stage ref
   const stageRef = useRef(null);
+
+  // ----------------------------
+  // KEYBOARD HANDLERS
+  // ----------------------------
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Only allow shortcut when in editor mode
+      if (!isEditor) return;
+
+      // Press "f" key to start polygon drawing
+      if (e.key.toLowerCase() === "f") {
+        setDrawingMode("polygon");
+        // Reset polygon drawing state
+        setPolygonPoints([]);
+        setCurMousePos(null);
+        setIsPolygonFinished(false);
+        setNewAnnotation(null);
+      }
+      // Press "d" key to start rectangle drawing
+      else if (e.key.toLowerCase() === "d") {
+        setDrawingMode("rectangle");
+        // Reset polygon state if any
+        setPolygonPoints([]);
+        setCurMousePos(null);
+        setIsPolygonFinished(false);
+        setNewAnnotation(null);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isEditor]);
+
 
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
