@@ -379,6 +379,19 @@ app.post(
       // 6. Save project
       await project.save();
 
+      // 7. Update each label to include this project
+      if (project.labels && project.labels.length > 0) {
+        await Promise.all(
+          project.labels.map(async (labelId) => {
+            await Label.findByIdAndUpdate(
+              labelId,
+              { $addToSet: { projects: project._id } }, // $addToSet prevents duplicates
+              { new: true }
+            );
+          })
+        );
+      }
+
       res.json({ message: "Project and images saved successfully", project });
     } catch (error) {
       console.error("Upload Error: ", error.message);

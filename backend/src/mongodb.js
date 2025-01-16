@@ -126,4 +126,23 @@ const getProjectById = async (projectId) => {
   }
 };
 
+ProjectSchema.post("save", async function (doc, next) {
+  try {
+    if (doc.labels && doc.labels.length > 0) {
+      await Promise.all(
+        doc.labels.map(async (labelId) => {
+          await mongoose.model("Label").findByIdAndUpdate(
+            labelId,
+            { $addToSet: { projects: doc._id } },
+            { new: true }
+          );
+        })
+      );
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = { User, Project, Image, Label, Annotation, getProjectById };
