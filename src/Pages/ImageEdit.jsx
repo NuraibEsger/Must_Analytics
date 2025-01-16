@@ -1,11 +1,31 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { Stage, Layer, Image as KonvaImage, Rect, Line, Circle } from "react-konva";
+import {
+  Stage,
+  Layer,
+  Image as KonvaImage,
+  Rect,
+  Line,
+  Circle,
+} from "react-konva";
 import useImage from "use-image";
 import { useParams } from "react-router-dom";
-import { getImageById, saveAnnotations, updateAnnotationLabel, deleteAnnotation } from "../services/imageService";
+import {
+  getImageById,
+  saveAnnotations,
+  updateAnnotationLabel,
+  deleteAnnotation,
+} from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
-import { FiEye, FiTrash, FiBox, FiEyeOff, FiPlus } from "react-icons/fi";
+import {
+  FiEye,
+  FiTrash,
+  FiBox,
+  FiEyeOff,
+  FiPlus,
+  FiSquare,
+  FiCommand,
+} from "react-icons/fi";
 import { useSelector } from "react-redux";
 import AddLabelModal from "../components/AddLabelModal";
 import { useQuery, useMutation, useQueryClient } from "react-query";
@@ -72,7 +92,9 @@ export default function ImageEdit() {
       }
       if (data.projectId) {
         setProjectId(data.projectId);
-        const foundMember = data.members.find((m) => m.email === currentUserEmail);
+        const foundMember = data.members.find(
+          (m) => m.email === currentUserEmail
+        );
         if (foundMember?.role === "editor") {
           setIsEditor(true);
         }
@@ -84,7 +106,7 @@ export default function ImageEdit() {
     },
   });
 
-  const { data: labelsData,} = useQuery(
+  const { data: labelsData } = useQuery(
     ["labels", projectId],
     () => getLabelsByProjectId(projectId),
     { enabled: !!projectId } // only run if projectId exists
@@ -95,7 +117,9 @@ export default function ImageEdit() {
     mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
     onMutate: async (newAnnotations) => {
       await queryClient.cancelQueries({ queryKey: ["image", id] });
-      const previousData = queryClient.getQueryData({ queryKey: ["image", id] });
+      const previousData = queryClient.getQueryData({
+        queryKey: ["image", id],
+      });
       queryClient.setQueryData({ queryKey: ["image", id] }, (oldData) => ({
         ...oldData,
         image: { ...oldData.image, annotations: newAnnotations },
@@ -104,14 +128,19 @@ export default function ImageEdit() {
     },
     onError: (err, context) => {
       if (context?.previousData)
-        queryClient.setQueryData({ queryKey: ["image", id] }, context.previousData);
+        queryClient.setQueryData(
+          { queryKey: ["image", id] },
+          context.previousData
+        );
       console.error("Error saving annotations:", err);
       toast.error("Failed to save annotations.");
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["image", id] });
       if (projectId) {
-        queryClient.invalidateQueries({ queryKey: ["ProjectStatistics", projectId] });
+        queryClient.invalidateQueries({
+          queryKey: ["ProjectStatistics", projectId],
+        });
       }
     },
     onSuccess: () => {
@@ -139,7 +168,7 @@ export default function ImageEdit() {
         toast.error("Failed to update annotation label.");
       },
       onSettled: () => {
-        queryClient.invalidateQueries(["image", id]); 
+        queryClient.invalidateQueries(["image", id]);
       },
     }
   );
@@ -178,7 +207,7 @@ export default function ImageEdit() {
   // Handle label selection changes
   const handleLabelChange = (annotationId, labelId) => {
     if (!isEditor) return;
-    
+
     updateLabelMutation.mutate({ annotationId, labelId });
   };
 
@@ -201,6 +230,37 @@ export default function ImageEdit() {
   // Konva stage ref
   const stageRef = useRef(null);
 
+  // Finalize polygon annotation.
+  const finalizePolygon = useCallback(() => {
+    if (polygonPoints.length < 3) {
+      toast.error("A polygon must have at least 3 points.");
+      return;
+    }
+    // Flatten the array-of-arrays into a single array.
+    const flattenedPoints = polygonPoints.reduce(
+      (acc, curr) => acc.concat(curr),
+      []
+    );
+    // Close the polygon by appending the first point.
+    const closedPoints = [
+      ...flattenedPoints,
+      polygonPoints[0][0],
+      polygonPoints[0][1],
+    ];
+    const annotationWithId = {
+      type: "polygon",
+      coordinates: closedPoints, // a flat array of numbers
+      label: null,
+    };
+    const updatedAnnotations = [...annotations, annotationWithId];
+    debouncedSave([annotationWithId]);
+    // Reset polygon drawing state.
+    setPolygonPoints([]);
+    setCurMousePos(null);
+    setIsPolygonFinished(false);
+    setDrawingMode("");
+    setHoveredPointIndex(null);
+  }, [polygonPoints, annotations, debouncedSave]);
   // ----------------------------
   // KEYBOARD HANDLERS
   // ----------------------------
@@ -208,7 +268,8 @@ export default function ImageEdit() {
     const handleKeyDown = (e) => {
       // Only allow shortcut when in editor mode
       if (!isEditor) return;
-      // Press "f" key to start polygon drawing
+
+      // For polygon drawing: pressing "f" or "Enter" can start or finish polygon
       if (e.key.toLowerCase() === "f") {
         setDrawingMode("polygon");
         // Reset polygon drawing state
@@ -216,8 +277,16 @@ export default function ImageEdit() {
         setCurMousePos(null);
         setIsPolygonFinished(false);
         setNewAnnotation(null);
+      } else if (drawingMode === "polygon" && e.key === "Enter") {
+        // Only finalize if there are enough points (e.g. at least 3)
+        if (polygonPoints.length < 3) {
+          toast.error("A polygon must have at least 3 points.");
+          return;
+        }
+        // Finalize the polygon
+        finalizePolygon();
       }
-      // Press "d" key to start rectangle drawing
+      // For rectangle drawing: pressing "d" starts rectangle drawing
       else if (e.key.toLowerCase() === "d") {
         setDrawingMode("rectangle");
         // Reset polygon state if any
@@ -227,9 +296,10 @@ export default function ImageEdit() {
         setNewAnnotation(null);
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isEditor]);
+  }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
 
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
@@ -324,31 +394,6 @@ export default function ImageEdit() {
     }
   };
 
-  // Finalize polygon annotation.
-  const finalizePolygon = useCallback(() => {
-    if (polygonPoints.length < 3) {
-      toast.error("A polygon must have at least 3 points.");
-      return;
-    }
-    // Flatten the array-of-arrays into a single array.
-    const flattenedPoints = polygonPoints.reduce((acc, curr) => acc.concat(curr), []);
-    // Close the polygon by appending the first point.
-    const closedPoints = [...flattenedPoints, polygonPoints[0][0], polygonPoints[0][1]];
-    const annotationWithId = {
-      type: "polygon",
-      coordinates: closedPoints, // a flat array of numbers
-      label: null,
-    };
-    const updatedAnnotations = [...annotations, annotationWithId];
-    debouncedSave([annotationWithId]);
-    // Reset polygon drawing state.
-    setPolygonPoints([]);
-    setCurMousePos(null);
-    setIsPolygonFinished(false);
-    setDrawingMode("");
-    setHoveredPointIndex(null);
-  }, [polygonPoints, annotations, debouncedSave]);
-
   // ----------------------------
   // PAN / ZOOM HANDLERS
   // ----------------------------
@@ -410,7 +455,10 @@ export default function ImageEdit() {
   // Compute the points for the current, in-progress polygon.
   let previewPolygonPoints = [];
   if (drawingMode === "polygon" && polygonPoints.length > 0) {
-    previewPolygonPoints = polygonPoints.reduce((acc, curr) => acc.concat(curr), []);
+    previewPolygonPoints = polygonPoints.reduce(
+      (acc, curr) => acc.concat(curr),
+      []
+    );
     if (curMousePos) {
       previewPolygonPoints = previewPolygonPoints.concat(curMousePos);
     }
@@ -528,7 +576,7 @@ export default function ImageEdit() {
                 setHoveredPointIndex(null);
               }}
             >
-              Rectangle
+              <FiSquare size={20} />
             </button>
             <button
               className={`px-3 py-1 rounded border ${
@@ -545,7 +593,7 @@ export default function ImageEdit() {
                 setHoveredPointIndex(null);
               }}
             >
-              Polygon
+              <FiCommand size={20} />
             </button>
           </div>
         )}
