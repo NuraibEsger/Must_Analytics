@@ -40,6 +40,10 @@ class HttpClient {
   delete(url, config=null) {
     return api.delete(url, config);
   }
+
+  patch(url, data, configs=null) {
+    return api.patch(url, data, configs);
+  }
 }
 
 export const httpClient = new HttpClient();

@@ -149,23 +149,23 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
 });
 
 // GET /project/:id
-app.get('/project/:id', verifyToken, async (req, res) => {
+app.get("/project/:id", verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
     const requestingUserEmail = req.userEmail;
 
     // Validate Project ID format (optional but recommended)
     if (!projectId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: 'Invalid project ID format' });
+      return res.status(400).json({ message: "Invalid project ID format" });
     }
 
     // Fetch project details excluding images
     const project = await Project.findById(projectId)
-      .select('name description labels members') // Select necessary fields
-      .populate('labels'); // Populate labels if necessary
+      .select("name description labels members") // Select necessary fields
+      .populate("labels"); // Populate labels if necessary
 
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
     const isEditor = project.members.some(
@@ -176,31 +176,35 @@ app.get('/project/:id', verifyToken, async (req, res) => {
     );
 
     if (!isEditor && !isVisitor) {
-      return res.status(403).json({ 
-        message: 'You do not have permission to view this project.' 
+      return res.status(403).json({
+        message: "You do not have permission to view this project.",
       });
     }
 
     res.json({ data: project });
   } catch (error) {
-    console.error('Error fetching project by ID:', error);
-    res.status(500).json({ message: 'Error fetching project', error: error.message });
+    console.error("Error fetching project by ID:", error);
+    res
+      .status(500)
+      .json({ message: "Error fetching project", error: error.message });
   }
 });
 
-app.get('/project/:id/statistics', verifyToken, async (req, res) => {
+app.get("/project/:id/statistics", verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
 
     // Validate Project ID format (optional but recommended)
     if (!projectId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: 'Invalid project ID format' });
+      return res.status(400).json({ message: "Invalid project ID format" });
     }
 
     // Fetch project details
-    const project = await Project.findById(projectId).select('labels images').exec();
+    const project = await Project.findById(projectId)
+      .select("labels images")
+      .exec();
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
     const totalLabels = project.labels.length;
@@ -221,22 +225,24 @@ app.get('/project/:id/statistics', verifyToken, async (req, res) => {
       unlabeledImagesCount,
     });
   } catch (error) {
-    console.error('Error fetching project statistics:', error);
-    res.status(500).json({ message: 'Error fetching statistics', error: error.message });
+    console.error("Error fetching project statistics:", error);
+    res
+      .status(500)
+      .json({ message: "Error fetching statistics", error: error.message });
   }
 });
 
 // Get a project by ID along with associated images
-app.get('/project/:id/images', verifyToken, async (req, res) => {
+app.get("/project/:id/images", verifyToken, async (req, res) => {
   try {
     const projectId = req.params.id;
     const skip = parseInt(req.query.skip, 10) || 0;
     const limit = parseInt(req.query.limit, 10) || 50;
 
     // Validate project existence
-    const project = await Project.findById(projectId).select('images');
+    const project = await Project.findById(projectId).select("images");
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
     // Fetch the paginated images sorted by createdAt descending
@@ -257,11 +263,10 @@ app.get('/project/:id/images', verifyToken, async (req, res) => {
       nextSkip,
     });
   } catch (error) {
-    console.error('Error fetching paginated images:', error);
-    res.status(500).json({ message: 'Error fetching images', error });
+    console.error("Error fetching paginated images:", error);
+    res.status(500).json({ message: "Error fetching images", error });
   }
 });
-
 
 // Get image by ID
 app.get("/image/:id", async (req, res) => {
@@ -290,7 +295,7 @@ app.get("/image/:id", async (req, res) => {
         .json({ message: "Project not found for this image" });
     }
 
-    const members = project?.members??  [];
+    const members = project?.members ?? [];
 
     // Ensure labels are returned as an array
     const labels = Array.isArray(project.labels)
@@ -298,7 +303,7 @@ app.get("/image/:id", async (req, res) => {
       : [project.labels];
 
     // Return image and project labels
-    res.json({projectId: project._id, members, image, labels });
+    res.json({ projectId: project._id, members, image, labels });
   } catch (error) {
     console.error("Error fetching image:", error);
     res.status(500).json({ message: "Error fetching image", error });
@@ -321,7 +326,7 @@ app.post(
           // e.g. "[{\"email\":\"nuraibesger@gmail.com\",\"role\":\"editor\"}]"
           parsedMembers = JSON.parse(members);
         } else if (Array.isArray(members)) {
-          parsedMembers = members; 
+          parsedMembers = members;
         }
       }
 
@@ -339,7 +344,7 @@ app.post(
       }
 
       // 2. Create project with parsedMembers
-      const project = new Project({ 
+      const project = new Project({
         name,
         description,
         members: parsedMembers, // Now an array of {email, role}
@@ -379,12 +384,11 @@ app.post(
       console.error("Upload Error: ", error.message);
       res.status(500).json({
         message: "Error uploading project",
-        error: error.message
+        error: error.message,
       });
     }
   }
 );
-
 
 app.post(
   "/project/:id/upload-images",
@@ -463,7 +467,7 @@ app.put(
       }
 
       project.name = name || project.name;
-      project.description = description
+      project.description = description;
 
       // Handle new images if uploaded
       if (req.files?.length) {
@@ -519,6 +523,19 @@ app.get("/labels", verifyToken, async (req, res) => {
   }
 });
 
+app.get("/labels/project/:projectId", async (req, res) => {
+  const { projectId } = req.params;
+
+  try {
+    const labels = await Label.find({ projects: { $in: [projectId] } });
+
+    res.json(labels);
+  } catch (error) {
+    console.error("Error fetching labels for project:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 // POST endpoint to create a label
 app.post("/labels", verifyToken, async (req, res) => {
   const { name, color } = req.body;
@@ -539,19 +556,19 @@ app.post("/labels", verifyToken, async (req, res) => {
 
 // Express Router
 
-app.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
+app.post("/projects/:projectId/labels", verifyToken, async (req, res) => {
   const { projectId } = req.params;
   const { name, color } = req.body;
   // Basic validation
   if (!name || !color) {
-    return res.status(400).json({ message: 'Name and color are required.' });
+    return res.status(400).json({ message: "Name and color are required." });
   }
 
   try {
     // Check if the project exists
     const project = await Project.findById(projectId);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found.' });
+      return res.status(404).json({ message: "Project not found." });
     }
 
     // Create the new label
@@ -569,57 +586,114 @@ app.post('/projects/:projectId/labels', verifyToken, async (req, res) => {
 
     res.status(201).json(newLabel);
   } catch (error) {
-    console.error('Error creating label:', error);
-    res.status(500).json({ message: 'Internal server error.' });
+    console.error("Error creating label:", error);
+    res.status(500).json({ message: "Internal server error." });
   }
 });
 
 app.post("/image/:id/annotations", async (req, res) => {
   const { id: imageId } = req.params;
-  let { annotations } = req.body; // Expecting an array of annotation objects
+  let { annotations } = req.body;
 
-  // Filter out any null or undefined annotations
-  annotations = annotations.filter(ann => ann != null);
+  annotations = annotations.filter((ann) => ann != null);
 
   try {
-    // Verify that the image exists
     const image = await Image.findById(imageId);
     if (!image) {
       return res.status(404).json({ message: "Image not found" });
     }
 
-    // Create annotations and capture their IDs
     const annotationDocs = await Promise.all(
       annotations.map(async (ann) => {
+        let dataToSave = { ...ann, image: imageId };
+
+        if (ann.type === "rectangle") {
+          dataToSave.bbox = [ann.x, ann.y, ann.width, ann.height];
+        } else if (ann.type === "polygon") {
+          if (typeof ann.coordinates === "string") {
+            try {
+              ann.coordinates = JSON.parse(ann.coordinates);
+            } catch (error) {
+              throw new Error("Invalid coordinates format");
+            }
+          }
+          dataToSave.coordinates = ann.coordinates;
+        }
+
         if (!ann._id) {
-          const annotation = new Annotation({ ...ann, image: imageId });
+          const annotation = new Annotation(dataToSave);
           await annotation.save();
           return annotation._id;
         } else {
-          await Annotation.findByIdAndUpdate(ann._id, ann);
+          await Annotation.findByIdAndUpdate(ann._id, dataToSave);
           return ann._id;
         }
       })
     );
 
-    // Update image's annotation array – replace with the saved IDs
-    image.annotations = annotationDocs;
+    image.annotations = image.annotations.concat(annotationDocs);
     const updatedImage = await image.save();
 
-    // Populate the newly created annotations (if you want label details populated as well)
     await updatedImage.populate({
       path: "annotations",
-      populate: { path: "label" }
+      populate: { path: "label" },
     });
-    
 
-    res.json({ message: "Annotations saved successfully", image: updatedImage });
+    res.json({
+      message: "Annotations saved successfully",
+      image: updatedImage,
+    });
   } catch (error) {
     console.error("Error saving annotations:", error);
     res.status(500).json({ message: "Error saving annotations", error });
   }
 });
 
+app.patch("/annotations/:id/label", async (req, res) => {
+  const { id } = req.params;
+  const { labelId } = req.body;
+
+  try {
+    const annotation = await Annotation.findById(id);
+
+    if (!annotation) {
+      return res.status(404).json({ message: "Annotation not found" });
+    }
+
+    if (annotation.label && annotation.label.toString() === labelId) {
+      return res.json({ annotation });
+    }
+
+    const updatedAnnotation = await Annotation.findByIdAndUpdate(
+      id,
+      { label: labelId },
+      { new: true }
+    );
+
+    res.json({ annotation: updatedAnnotation });
+  } catch {
+    console.error("Error updating annotation label:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.delete("/annotations/:id", async (req, res) => {
+  const { id } = req.params;
+  try {
+    const annotation = await Annotation.findByIdAndDelete(id);
+    if (!annotation) {
+      return res.status(404).json({ message: "Annotation not found" });
+    }
+    // Remove annotation reference from the related image.
+    await Image.findByIdAndUpdate(annotation.image, {
+      $pull: { annotations: annotation._id },
+    });
+    res.json({ message: "Annotation deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting annotation:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 
 //#endregion
 
@@ -691,7 +765,7 @@ app.post("/signUp", async (req, res) => {
   }
 });
 
-app.post('/project/:projectId/invite', async (req, res) => {
+app.post("/project/:projectId/invite", async (req, res) => {
   try {
     const { projectId } = req.params;
     const { email, role } = req.body; // from the invite modal
@@ -699,19 +773,19 @@ app.post('/project/:projectId/invite', async (req, res) => {
     // 1. Check if userEmail is project owner
     const project = await Project.findById(projectId);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
-    const existingMember = project.members.find(m => m.email === email);
+    const existingMember = project.members.find((m) => m.email === email);
     if (existingMember) {
-      return res.status(403).json({ message: 'Not authorized' });
+      return res.status(403).json({ message: "Not authorized" });
     }
 
     // 2. Generate a token to encode the invite info
     const inviteToken = jwt.sign(
-      { projectId, email, role }, 
-      JWT_SECRET, 
-      { expiresIn: '7d' } // token expires in 7 days
+      { projectId, email, role },
+      JWT_SECRET,
+      { expiresIn: "7d" } // token expires in 7 days
     );
 
     const inviteLink = `${frontUrl}/accept-invite?token=${inviteToken}`;
@@ -735,27 +809,27 @@ app.post('/project/:projectId/invite', async (req, res) => {
              Click this link to accept: ${inviteLink}`,
     });
 
-    return res.status(200).json({ message: 'Invite sent successfully.' });
+    return res.status(200).json({ message: "Invite sent successfully." });
   } catch (err) {
-    console.error('Error sending invite:', err);
-    return res.status(500).json({ message: 'Error sending invite.' });
+    console.error("Error sending invite:", err);
+    return res.status(500).json({ message: "Error sending invite." });
   }
 });
 
-app.post('/project/accept-invite', async (req, res) => {
+app.post("/project/accept-invite", async (req, res) => {
   try {
-    const { token } = req.body; 
+    const { token } = req.body;
     // decode token
     const { projectId, email, role } = jwt.verify(token, JWT_SECRET);
 
     // find project
     const project = await Project.findById(projectId);
     if (!project) {
-      return res.status(404).json({ message: 'Project not found' });
+      return res.status(404).json({ message: "Project not found" });
     }
 
     // add member if not existing
-    const existingMember = project.members.find(m => m.email === email);
+    const existingMember = project.members.find((m) => m.email === email);
     if (existingMember) {
       // update role if needed or do nothing
       existingMember.role = role;
@@ -764,14 +838,14 @@ app.post('/project/accept-invite', async (req, res) => {
     }
     await project.save();
 
-    return res.status(200).json({ message: 'Invite accepted. Welcome to the project!' });
+    return res
+      .status(200)
+      .json({ message: "Invite accepted. Welcome to the project!" });
   } catch (err) {
-    console.error('Error accepting invite:', err);
-    return res.status(400).json({ message: 'Invalid or expired invite link.' });
+    console.error("Error accepting invite:", err);
+    return res.status(400).json({ message: "Invalid or expired invite link." });
   }
 });
-
-
 
 //#endregion
 

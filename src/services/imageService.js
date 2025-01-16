@@ -34,3 +34,24 @@ export const deleteImage = async (projectId, imageId, token) => {
 
   return response.json();
 };
+
+export const updateAnnotationLabel = async (annotationId, labelId) => {
+  try {
+    const response = await httpClient.patch(`/annotations/${annotationId}/label`, { labelId });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating annotation label:", error);
+    throw error;
+  }
+};
+
+// Delete a single annotation.
+export const deleteAnnotation = async (annotationId) => {
+  try {
+    const response = await httpClient.delete(`/annotations/${annotationId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting annotation:", error);
+    throw error;
+  }
+};

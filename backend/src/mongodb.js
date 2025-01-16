@@ -45,15 +45,24 @@ const ImageSchema = new mongoose.Schema(
 const AnnotationSchema = new mongoose.Schema(
   {
     // Reference back to the related image
-    image: { type: mongoose.Schema.Types.ObjectId, ref: "Image", required: true },
-    coordinates: [
-      {
-        type: [[Number]], 
-      },
-    ],
-    bounds: {
-      southWest: { type: [Number] },
-      northEast: { type: [Number] },
+    image: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Image",
+      required: true,
+    },
+    type: { 
+      type: String, 
+      enum: ["rectangle", "polygon"], 
+      required: true 
+    },
+    coordinates: {
+      type: [[Number]],
+      default: undefined,
+    },
+
+    bbox: {
+      type: [Number],
+      default: undefined,
     },
     label: { type: mongoose.Schema.Types.ObjectId, ref: "Label" },
   },

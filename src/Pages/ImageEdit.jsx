@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import { Stage, Layer, Image as KonvaImage, Rect, Line, Circle } from "react-konva";
 import useImage from "use-image";
 import { useParams } from "react-router-dom";
-import { getImageById, saveAnnotations } from "../services/imageService";
+import { getImageById, saveAnnotations, updateAnnotationLabel, deleteAnnotation } from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
 import { FiEye, FiTrash, FiBox, FiEyeOff, FiPlus } from "react-icons/fi";
@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import AddLabelModal from "../components/AddLabelModal";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { useDebouncedCallback } from "use-debounce";
+import { getLabelsByProjectId } from "../services/labelService";
 
 const Loading = () => (
   <div className="flex justify-center items-center h-full w-full">
@@ -27,7 +28,6 @@ export default function ImageEdit() {
   // Annotation, label, and permission states
   const [annotations, setAnnotations] = useState([]);
   const [hiddenAnnotations, setHiddenAnnotations] = useState([]);
-  const [labels, setLabels] = useState([]);
   const [isAddLabelModalOpen, setIsAddLabelModalOpen] = useState(false);
   const [isEditor, setIsEditor] = useState(false);
   const [projectId, setProjectId] = useState(null);
@@ -59,7 +59,6 @@ export default function ImageEdit() {
     onSuccess: (data) => {
       if (data.image) {
         setAnnotations(data.image.annotations || []);
-        setLabels(data.labels || []);
         const img = new Image();
         img.onload = () => {
           setImageDimensions({ width: img.width, height: img.height });
@@ -84,6 +83,12 @@ export default function ImageEdit() {
       toast.error("Error fetching image data.");
     },
   });
+
+  const { data: labelsData,} = useQuery(
+    ["labels", projectId],
+    () => getLabelsByProjectId(projectId),
+    { enabled: !!projectId } // only run if projectId exists
+  );
 
   // Mutation for saving annotations
   const mutation = useMutation({
@@ -117,6 +122,47 @@ export default function ImageEdit() {
     },
   });
 
+  const updateLabelMutation = useMutation(
+    ({ annotationId, labelId }) => updateAnnotationLabel(annotationId, labelId),
+    {
+      onSuccess: (data, variables) => {
+        const updatedAnnotation = data.annotation;
+        setAnnotations((prevAnnotations) =>
+          prevAnnotations.map((ann) =>
+            ann._id === variables.annotationId ? updatedAnnotation : ann
+          )
+        );
+        toast.success("Annotation label updated.");
+      },
+      onError: (error) => {
+        console.error("Error updating label:", error);
+        toast.error("Failed to update annotation label.");
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries(["image", id]); 
+      },
+    }
+  );
+
+  const deleteAnnotationMutation = useMutation(
+    (annotationId) => deleteAnnotation(annotationId),
+    {
+      onSuccess: (_, annotationId) => {
+        setAnnotations((prevAnnotations) =>
+          prevAnnotations.filter((ann) => ann._id !== annotationId)
+        );
+        toast.success("Annotation removed successfully.");
+      },
+      onError: (error) => {
+        console.error("Error deleting annotation:", error);
+        toast.error("Failed to remove annotation.");
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries(["image", id]);
+      },
+    }
+  );
+
   const debouncedSave = useDebouncedCallback(
     (newAnnotations) => {
       mutation.mutate(newAnnotations);
@@ -132,23 +178,15 @@ export default function ImageEdit() {
   // Handle label selection changes
   const handleLabelChange = (annotationId, labelId) => {
     if (!isEditor) return;
-    const selectedLabel = labels.find((label) => label._id === labelId);
-    if (!selectedLabel) return;
-    const updatedAnnotations = annotations.map((annotation) =>
-      annotation._id === annotationId ? { ...annotation, label: selectedLabel } : annotation
-    );
-    setAnnotations(updatedAnnotations);
-    debouncedSave(updatedAnnotations);
+    
+    updateLabelMutation.mutate({ annotationId, labelId });
   };
 
   // Remove an annotation
   const removeAnnotation = (annotationId) => {
     if (!isEditor) return;
-    const updatedAnnotations = annotations.filter(
-      (annotation) => annotation._id !== annotationId
-    );
-    setAnnotations(updatedAnnotations);
-    debouncedSave(updatedAnnotations);
+
+    deleteAnnotationMutation.mutate(annotationId);
   };
 
   // Toggle annotation visibility
@@ -170,7 +208,6 @@ export default function ImageEdit() {
     const handleKeyDown = (e) => {
       // Only allow shortcut when in editor mode
       if (!isEditor) return;
-
       // Press "f" key to start polygon drawing
       if (e.key.toLowerCase() === "f") {
         setDrawingMode("polygon");
@@ -193,7 +230,6 @@ export default function ImageEdit() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditor]);
-
 
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
@@ -273,13 +309,16 @@ export default function ImageEdit() {
     if (!isEditor) return;
     if (newAnnotation && newAnnotation.type === "rectangle") {
       const annotationWithId = {
-        ...newAnnotation,
-        _id: Date.now().toString(),
+        type: "rectangle",
+        x: newAnnotation.x,
+        y: newAnnotation.y,
+        width: newAnnotation.width,
+        height: newAnnotation.height,
         label: null,
       };
       const updatedAnnotations = [...annotations, annotationWithId];
       setAnnotations(updatedAnnotations);
-      debouncedSave(updatedAnnotations);
+      debouncedSave([newAnnotation]);
       setNewAnnotation(null);
       setDrawingMode("");
     }
@@ -297,13 +336,11 @@ export default function ImageEdit() {
     const closedPoints = [...flattenedPoints, polygonPoints[0][0], polygonPoints[0][1]];
     const annotationWithId = {
       type: "polygon",
-      points: closedPoints,
-      _id: Date.now().toString(),
+      coordinates: closedPoints, // a flat array of numbers
       label: null,
     };
     const updatedAnnotations = [...annotations, annotationWithId];
-    setAnnotations(updatedAnnotations);
-    debouncedSave(updatedAnnotations);
+    debouncedSave([annotationWithId]);
     // Reset polygon drawing state.
     setPolygonPoints([]);
     setCurMousePos(null);
@@ -402,15 +439,15 @@ export default function ImageEdit() {
           </div>
         )}
         <ul className="space-y-2">
-          {annotations.map((annotation) => (
+          {annotations.map((annotation, idx) => (
             <li
-              key={annotation._id}
+              key={`${annotation._id}-${idx}`}
               className="flex justify-between items-center bg-gray-50 p-2 rounded"
             >
               <div className="flex items-center space-x-2">
                 <FiBox />
                 <select
-                  disabled={!isEditor}
+                  disabled={!isEditor} // Only allow editors to change the label
                   value={annotation.label?._id || ""}
                   onChange={(e) =>
                     handleLabelChange(annotation._id, e.target.value)
@@ -420,11 +457,16 @@ export default function ImageEdit() {
                   }`}
                   aria-label={`Select Label for Annotation ${annotation._id}`}
                 >
-                  <option value="">
-                    {annotation.label?.name || "Select Label"}
+                  <option value="" disabled={annotation.label}>
+                    {"Select Label"}
                   </option>
-                  {labels.map((label) => (
-                    <option key={label._id} value={label._id}>
+                  {labelsData.map((label) => (
+                    <option
+                      key={label._id}
+                      value={label._id}
+                      // If this label is currently assigned, disable it in the options list.
+                      disabled={annotation.label?._id === label._id}
+                    >
                       {label.name}
                     </option>
                   ))}
@@ -529,25 +571,43 @@ export default function ImageEdit() {
             <KonvaImage image={konvaImage} x={imageX} y={imageY} />
             {annotations.map((ann) => {
               if (hiddenAnnotations.includes(ann._id)) return null;
+
               if (ann.type === "rectangle") {
+                const x = ann.x ?? (ann.bbox && ann.bbox[0]);
+                const y = ann.y ?? (ann.bbox && ann.bbox[1]);
+                const width = ann.width ?? (ann.bbox && ann.bbox[2]);
+                const height = ann.height ?? (ann.bbox && ann.bbox[3]);
+
+                if (x == null || y == null || width == null || height == null) {
+                  return null;
+                }
+
                 return (
                   <Rect
                     key={ann._id}
-                    x={ann.x}
-                    y={ann.y}
-                    width={ann.width}
-                    height={ann.height}
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
                     stroke={ann.label?.color || "blue"}
                     strokeWidth={2}
                     dash={[4, 4]}
                   />
                 );
               }
+
               if (ann.type === "polygon") {
+                const flattenCoordinates = (coordinates) => {
+                  if (Array.isArray(coordinates[0])) {
+                    return coordinates[0];
+                  }
+                  return coordinates;
+                };
+                const flatPoints = flattenCoordinates(ann.coordinates);
                 return (
                   <React.Fragment key={ann._id}>
                     <Line
-                      points={ann.points}
+                      points={flatPoints}
                       stroke={ann.label?.color || "blue"}
                       strokeWidth={3}
                       lineJoin="round"
@@ -559,10 +619,10 @@ export default function ImageEdit() {
                       shadowOffsetX={5}
                       shadowOffsetY={5}
                     />
-                    {ann.points.map((point, index) => {
+                    {flatPoints.map((point, index) => {
                       if (index % 2 === 0) {
                         const x = point;
-                        const y = ann.points[index + 1];
+                        const y = flatPoints[index + 1];
                         return (
                           <Circle
                             key={`${ann._id}-point-${index}`}
@@ -580,8 +640,11 @@ export default function ImageEdit() {
                   </React.Fragment>
                 );
               }
+
               return null;
             })}
+
+            {/* Render the new annotation (in-progress rectangle) if any */}
             {newAnnotation && newAnnotation.type === "rectangle" && (
               <Rect
                 x={newAnnotation.x}
@@ -593,6 +656,8 @@ export default function ImageEdit() {
                 dash={[4, 4]}
               />
             )}
+
+            {/* Render the in-progress polygon preview */}
             {drawingMode === "polygon" && previewPolygonPoints.length > 0 && (
               <>
                 <Line
@@ -603,19 +668,17 @@ export default function ImageEdit() {
                   lineCap="round"
                   dash={[4, 4]}
                 />
-                {/* Render draggable circles for each saved polygon point with hover behavior */}
                 {polygonPoints.map((point, idx) => (
                   <Circle
                     key={`polygon-point-${idx}`}
                     x={point[0]}
                     y={point[1]}
-                    radius={hoveredPointIndex === idx ? 10 : 6} // enlarge when hovered
+                    radius={hoveredPointIndex === idx ? 10 : 6}
                     fill={hoveredPointIndex === idx ? "orange" : "blue"}
                     stroke="black"
                     strokeWidth={2}
                     draggable
                     onDragMove={(e) => {
-                      // Update the dragged point.
                       const newPoint = [e.target.x(), e.target.y()];
                       setPolygonPoints((prevPoints) =>
                         prevPoints.map((pt, index) =>

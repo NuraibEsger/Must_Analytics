@@ -8,6 +8,16 @@ export const getLabels = (token) => {
   });
 };
 
+export const getLabelsByProjectId = async (projectId) => {
+  try {
+    const response = await httpClient.get(`/labels/project/${projectId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching labels by project ID:", error);
+    throw error;
+  }
+};
+
 export const postLabel = (data, token) => {
   return httpClient.post("/labels", data, {
     headers: {
