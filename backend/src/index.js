@@ -133,20 +133,166 @@ app.get("/projects", verifyToken, async (req, res) => {
   }
 });
 
-// Export projcet
+// Export project in COCO JSON format
 app.get("/projects/:id/export", verifyToken, async (req, res) => {
   const projectId = req.params.id;
-  // Fetch project data from database
-  const projectData = await collection.getProjectById(projectId);
+  try {
+    // Fetch project data with populated images, labels, and ideally annotations.
+    // Ensure that your getProjectById function populates images and annotations.
+    const projectData = await collection.getProjectById(projectId);
 
-  // Send the data as a downloadable file (JSON format here)
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename=project_${projectId}_data.json`
-  );
-  res.setHeader("Content-Type", "application/json");
-  res.send(JSON.stringify(projectData)); // You can also send CSV, XLSX, etc.
+    if (!projectData) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Prepare basic COCO structure.
+    const cocoData = {
+      info: {
+        description: projectData.name,
+        version: "1.0",
+        contributor: "",
+        date_created: projectData.created_at || new Date(),
+      },
+      licenses: [
+        // Fill in license details if needed.
+      ],
+      images: [],
+      annotations: [],
+      categories: [],
+    };
+
+    // Map labels to categories.
+    // Create a mapping from each label's ObjectId (as a string) to a numeric category id.
+    const categoryMapping = {};
+    projectData.labels.forEach((label, index) => {
+      const categoryId = index + 1; // Using an incrementing number.
+      categoryMapping[label._id.toString()] = categoryId;
+      cocoData.categories.push({
+        id: categoryId,
+        name: label.name,
+        // Optionally include extra fields (e.g. color, supercategory).
+        color: label.color,
+        supercategory: "none",
+      });
+    });
+
+    let globalAnnotationId = 1;
+    let globalImageId = 1;
+
+    // Process each image in the project.
+    projectData.images.forEach((image) => {
+      // Use stored dimensions if available; otherwise, fall back to defaults.
+      const imgWidth = image.width || 640;
+      const imgHeight = image.height || 480;
+
+      cocoData.images.push({
+        id: globalImageId,
+        file_name: image.fileName,
+        width: imgWidth,
+        height: imgHeight,
+        license: 1, // You can adjust if you have license info.
+        date_captured: image.createdAt ? image.createdAt.toISOString() : "",
+      });
+
+      // Process each annotation in this image.
+      if (image.annotations && image.annotations.length > 0) {
+        image.annotations.forEach((ann) => {
+          let bbox = [];
+          let segmentation = [];
+          let area = 0;
+
+          if (ann.type === "rectangle") {
+            // First, try to use the stored bbox (if available and valid).
+            const x =
+              ann.bbox && ann.bbox[0] !== undefined
+                ? ann.bbox[0]
+                : ann.x;
+            const y =
+              ann.bbox && ann.bbox[1] !== undefined
+                ? ann.bbox[1]
+                : ann.y;
+            const width =
+              ann.bbox && ann.bbox[2] !== undefined
+                ? ann.bbox[2]
+                : ann.width;
+            const height =
+              ann.bbox && ann.bbox[3] !== undefined
+                ? ann.bbox[3]
+                : ann.height;
+
+            if (x != null && y != null && width != null && height != null) {
+              bbox = [x, y, width, height];
+              area = width * height;
+              // Create a rectangular segmentation (four corners).
+              segmentation = [[
+                x, y,
+                x + width, y,
+                x + width, y + height,
+                x, y + height
+              ]];
+            }
+          } else if (ann.type === "polygon") {
+            // Process polygon: ensure segmentation is an array of arrays.
+            if (ann.coordinates) {
+              segmentation = Array.isArray(ann.coordinates[0])
+                ? ann.coordinates
+                : [ann.coordinates];
+              // Compute bbox from segmentation:
+              const flatPoints = segmentation[0];
+              const xs = [];
+              const ys = [];
+              for (let i = 0; i < flatPoints.length; i += 2) {
+                xs.push(flatPoints[i]);
+                ys.push(flatPoints[i + 1]);
+              }
+              const minX = Math.min(...xs);
+              const maxX = Math.max(...xs);
+              const minY = Math.min(...ys);
+              const maxY = Math.max(...ys);
+              bbox = [minX, minY, maxX - minX, maxY - minY];
+              // Optionally, compute polygon area here.
+              area = 0;
+            }
+          }
+
+          // Determine the category id based on the label associated with the annotation.
+          const categoryId =
+            ann.label && categoryMapping[ann.label.toString()]
+              ? categoryMapping[ann.label.toString()]
+              : 0;
+
+          cocoData.annotations.push({
+            id: globalAnnotationId,
+            image_id: globalImageId,
+            category_id: categoryId,
+            segmentation,
+            bbox,
+            area,
+            iscrowd: 0,
+          });
+          globalAnnotationId++;
+        });
+      }
+
+      globalImageId++;
+    });
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=project_${projectId}_COCO.json`
+    );
+    res.setHeader("Content-Type", "application/json");
+    res.send(JSON.stringify(cocoData, null, 2));
+  } catch (error) {
+    console.error("Export Error: ", error);
+    res.status(500).json({
+      message: "Error exporting project",
+      error: error.message,
+    });
+  }
 });
+
+
 
 // GET /project/:id
 app.get("/project/:id", verifyToken, async (req, res) => {

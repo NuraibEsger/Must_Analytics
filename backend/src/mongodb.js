@@ -117,8 +117,12 @@ const Project = mongoose.model("Project", ProjectSchema);
 const getProjectById = async (projectId) => {
   try {
     const project = await Project.findById(projectId)
-      .populate("images")
-      .populate("labels");
+    .populate({
+      path: "images",
+      populate: { path: "annotations", populate: { path: "label" } }
+    })
+    .populate("labels");
+    
     return project;
   } catch (error) {
     console.error("Error fetching project by ID:", error);
