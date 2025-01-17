@@ -80,7 +80,7 @@ export default function ProjectDetail() {
   } = useInfiniteQuery({
     queryKey: ["ProjectImages", params.id],
     queryFn: ({ pageParam = 0 }) =>
-      getProjectImages(params.id, token, pageParam, 50),
+    getProjectImages(params.id, token, pageParam, 50),
     getNextPageParam: (lastPage) =>
       lastPage.hasNextPage ? lastPage.nextSkip : undefined,
     staleTime: 1000 * 60 * 5, // 5 minutes

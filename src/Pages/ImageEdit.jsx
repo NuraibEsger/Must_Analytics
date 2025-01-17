@@ -25,6 +25,7 @@ import {
   FiPlus,
   FiSquare,
   FiCommand,
+  FiTarget,
 } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import AddLabelModal from "../components/AddLabelModal";
@@ -72,6 +73,10 @@ export default function ImageEdit() {
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
 
+  // New states for selection mode.
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+
   // Fetch image and related data
   const { isLoading, isError, error } = useQuery({
     queryKey: ["image", id],
@@ -117,9 +122,12 @@ export default function ImageEdit() {
     mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
     onMutate: async (newAnnotations) => {
       await queryClient.cancelQueries({ queryKey: ["image", id] });
-      const previousData = queryClient.getQueryData({ queryKey: ["image", id] });
+      const previousData = queryClient.getQueryData({
+        queryKey: ["image", id],
+      });
       queryClient.setQueryData({ queryKey: ["image", id] }, (oldData) => {
-        const oldAnnotations = (oldData && oldData.image && oldData.image.annotations) || [];
+        const oldAnnotations =
+          (oldData && oldData.image && oldData.image.annotations) || [];
         return {
           ...oldData,
           image: {
@@ -145,6 +153,7 @@ export default function ImageEdit() {
         queryClient.invalidateQueries({
           queryKey: ["ProjectStatistics", projectId],
         });
+        queryClient.invalidateQueries(["ProjectImages", projectId]);
       }
     },
     onSuccess: () => {
@@ -191,7 +200,13 @@ export default function ImageEdit() {
         toast.error("Failed to remove annotation.");
       },
       onSettled: () => {
-        queryClient.invalidateQueries(["image", id]);
+        if (projectId) {
+          queryClient.invalidateQueries(["image", id]);
+          queryClient.invalidateQueries(["ProjectImages", projectId]);
+          queryClient.invalidateQueries({
+            queryKey: ["ProjectStatistics", projectId],
+          });
+        }
       },
     }
   );
@@ -271,13 +286,32 @@ export default function ImageEdit() {
   // ----------------------------
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Only allow shortcuts when in editor mode
       if (!isEditor) return;
-  
-      // Toggle polygon mode using "f" key:
+
+      // Toggle selection mode with "s" key.
+      if (e.key.toLowerCase() === "s") {
+        if (drawingMode) {
+          setDrawingMode("");
+          setNewAnnotation(null);
+          setPolygonPoints([]);
+          setCurMousePos(null);
+          setIsPolygonFinished(false);
+          setHoveredPointIndex(null);
+        }
+        // Toggle selection mode.
+        setIsSelecting((prev) => {
+          const newValue = !prev;
+          if (!newValue) {
+            setSelectedAnnotationId(null);
+          }
+          return newValue;
+        });
+        return;
+      }
+
+      // Existing keys for polygon (f) and rectangle (d)
       if (e.key.toLowerCase() === "f") {
         if (drawingMode === "polygon") {
-          // If polygon mode is already on, turn it off.
           setDrawingMode("");
           setPolygonPoints([]);
           setCurMousePos(null);
@@ -285,35 +319,30 @@ export default function ImageEdit() {
           setNewAnnotation(null);
           setHoveredPointIndex(null);
         } else {
-          // Activate polygon drawing mode.
           setDrawingMode("polygon");
-          // Reset polygon drawing state.
           setPolygonPoints([]);
           setCurMousePos(null);
           setIsPolygonFinished(false);
           setNewAnnotation(null);
           setHoveredPointIndex(null);
         }
-      }
-      // Toggle rectangle mode using "d" key:
-      else if (e.key.toLowerCase() === "d") {
+        // Exit selection mode when starting drawing.
+        setIsSelecting(false);
+      } else if (e.key.toLowerCase() === "d") {
         if (drawingMode === "rectangle") {
-          // If rectangle mode is already on, turn it off.
           setDrawingMode("");
           setNewAnnotation(null);
         } else {
-          // Activate rectangle drawing mode.
           setDrawingMode("rectangle");
-          // Reset rectangle (and polygon) drawing state.
           setNewAnnotation(null);
           setPolygonPoints([]);
           setCurMousePos(null);
           setIsPolygonFinished(false);
           setHoveredPointIndex(null);
         }
-      }
-      // If in polygon mode and Enter is pressed, finalize polygon:
-      else if (drawingMode === "polygon" && e.key === "Enter") {
+        // Exit selection mode.
+        setIsSelecting(false);
+      } else if (drawingMode === "polygon" && e.key === "Enter") {
         if (polygonPoints.length < 3) {
           toast.error("A polygon must have at least 3 points.");
           return;
@@ -321,10 +350,10 @@ export default function ImageEdit() {
         finalizePolygon();
       }
     };
-  
+
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
+  }, [isEditor, drawingMode, polygonPoints, finalizePolygon, isSelecting]);
 
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
@@ -510,12 +539,21 @@ export default function ImageEdit() {
           {annotations.map((annotation, idx) => (
             <li
               key={`${annotation._id}-${idx}`}
-              className="flex justify-between items-center bg-gray-50 p-2 rounded"
+              className={`flex justify-between items-center bg-gray-50 p-2 rounded cursor-pointer ${
+                selectedAnnotationId === annotation._id
+                  ? "ring-2 ring-indigo-600"
+                  : ""
+              }`}
+              onClick={() => {
+                if (isSelecting) {
+                  setSelectedAnnotationId(annotation._id);
+                }
+              }}
             >
               <div className="flex items-center space-x-2">
                 <FiBox />
                 <select
-                  disabled={!isEditor} // Only allow editors to change the label
+                  disabled={!isEditor}
                   value={annotation.label?._id || ""}
                   onChange={(e) =>
                     handleLabelChange(annotation._id, e.target.value)
@@ -526,18 +564,25 @@ export default function ImageEdit() {
                   aria-label={`Select Label for Annotation ${annotation._id}`}
                 >
                   <option value="" disabled={annotation.label}>
-                    {"Select Label"}
+                    Select Label
                   </option>
-                  {labelsData.map((label) => (
-                    <option
-                      key={label._id}
-                      value={label._id}
-                      // If this label is currently assigned, disable it in the options list.
-                      disabled={annotation.label?._id === label._id}
-                    >
-                      {label.name}
-                    </option>
-                  ))}
+                  {labelsData && Array.isArray(labelsData)
+                    ? labelsData.map((label) => (
+                        <option
+                          key={label._id}
+                          value={label._id}
+                          disabled={annotation.label?._id === label._id}
+                          style={
+                            selectedAnnotationId === annotation._id &&
+                            annotation.label?._id === label._id
+                              ? { backgroundColor: "#e0f7fa" }
+                              : {}
+                          }
+                        >
+                          {label.name}
+                        </option>
+                      ))
+                    : null}
                 </select>
               </div>
               <div className="flex items-center space-x-2">
@@ -583,6 +628,35 @@ export default function ImageEdit() {
           >
             <button
               className={`px-3 py-1 rounded border ${
+                isSelecting
+                  ? "bg-green-600 text-white"
+                  : "bg-white text-green-600"
+              }`}
+              onClick={() => {
+                // Clear any drawing mode first.
+                if (drawingMode) {
+                  setDrawingMode("");
+                  setNewAnnotation(null);
+                  setPolygonPoints([]);
+                  setCurMousePos(null);
+                  setIsPolygonFinished(false);
+                  setHoveredPointIndex(null);
+                }
+                // Toggle selection mode.
+                setIsSelecting((prev) => {
+                  const newValue = !prev;
+                  if (!newValue) {
+                    setSelectedAnnotationId(null);
+                  }
+                  return newValue;
+                });
+              }}
+              aria-label="Toggle selection mode"
+            >
+              <FiTarget size={20} />
+            </button>
+            <button
+              className={`px-3 py-1 rounded border ${
                 drawingMode === "rectangle"
                   ? "bg-blue-600 text-white"
                   : "bg-white text-blue-600"
@@ -601,6 +675,7 @@ export default function ImageEdit() {
                   setCurMousePos(null);
                   setIsPolygonFinished(false);
                   setHoveredPointIndex(null);
+                  setIsSelecting(false);
                 }
               }}
             >
@@ -626,6 +701,7 @@ export default function ImageEdit() {
                   setIsPolygonFinished(false);
                   setNewAnnotation(null);
                   setHoveredPointIndex(null);
+                  setIsSelecting(false);
                 }
               }}
             >
@@ -648,7 +724,10 @@ export default function ImageEdit() {
           onDragEnd={handleDragEnd}
           draggable={newAnnotation === null && drawingMode === ""}
           ref={stageRef}
-          style={{ background: "#ddd", cursor: drawingMode ? "crosshair" : "default" }}
+          style={{
+            background: "#ddd",
+            cursor: drawingMode ? "crosshair" : "default",
+          }}
           className="bg-slate-400"
         >
           <Layer>
@@ -666,6 +745,7 @@ export default function ImageEdit() {
                   return null;
                 }
 
+                // Check if this annotation is selected.
                 return (
                   <Rect
                     key={ann._id}
@@ -674,30 +754,46 @@ export default function ImageEdit() {
                     width={width}
                     height={height}
                     stroke={ann.label?.color || "blue"}
-                    strokeWidth={2}
+                    strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
                     dash={[4, 4]}
                     shadowColor="black"
                     shadowBlur={10}
                     shadowOffsetX={5}
                     shadowOffsetY={5}
+                    onClick={() => {
+                      if (isSelecting) {
+                        setSelectedAnnotationId(ann._id);
+                      }
+                    }}
+                    onMouseEnter={(e) => {
+                      // Optionally, change cursor or store hover state
+                      e.target.to({
+                        strokeWidth: 4,
+                        duration: 0.2,
+                      });
+                    }}
+                    onMouseLeave={(e) => {
+                      // Reset hover styling if not selected
+                      e.target.to({
+                        strokeWidth: selectedAnnotationId === ann._id ? 4 : 2,
+                        duration: 0.2,
+                      });
+                    }}
                   />
                 );
               }
 
               if (ann.type === "polygon") {
-                const flattenCoordinates = (coordinates) => {
-                  if (Array.isArray(coordinates[0])) {
-                    return coordinates[0];
-                  }
-                  return coordinates;
-                };
+                const flattenCoordinates = (coordinates) =>
+                  Array.isArray(coordinates[0]) ? coordinates[0] : coordinates;
                 const flatPoints = flattenCoordinates(ann.coordinates);
+                const isSelected = selectedAnnotationId === ann._id;
                 return (
                   <React.Fragment key={ann._id}>
                     <Line
                       points={flatPoints}
                       stroke={ann.label?.color || "blue"}
-                      strokeWidth={3}
+                      strokeWidth={selectedAnnotationId === ann._id ? 5 : 3}
                       lineJoin="round"
                       lineCap="round"
                       closed
@@ -706,7 +802,25 @@ export default function ImageEdit() {
                       shadowBlur={10}
                       shadowOffsetX={5}
                       shadowOffsetY={5}
+                      onClick={() => {
+                        if (isSelecting) {
+                          setSelectedAnnotationId(ann._id);
+                        }
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.to({
+                          strokeWidth: 5,
+                          duration: 0.2,
+                        });
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.to({
+                          strokeWidth: selectedAnnotationId === ann._id ? 5 : 3,
+                          duration: 0.2,
+                        });
+                      }}
                     />
+
                     {flatPoints.map((point, index) => {
                       if (index % 2 === 0) {
                         const x = point;
@@ -716,7 +830,7 @@ export default function ImageEdit() {
                             key={`${ann._id}-point-${index}`}
                             x={x}
                             y={y}
-                            radius={4}
+                            radius={isSelected ? 6 : 4} // larger circle when selected
                             fill="black"
                             strokeWidth={2}
                           />
@@ -727,7 +841,6 @@ export default function ImageEdit() {
                   </React.Fragment>
                 );
               }
-
               return null;
             })}
 
