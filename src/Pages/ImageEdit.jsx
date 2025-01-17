@@ -117,13 +117,17 @@ export default function ImageEdit() {
     mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
     onMutate: async (newAnnotations) => {
       await queryClient.cancelQueries({ queryKey: ["image", id] });
-      const previousData = queryClient.getQueryData({
-        queryKey: ["image", id],
+      const previousData = queryClient.getQueryData({ queryKey: ["image", id] });
+      queryClient.setQueryData({ queryKey: ["image", id] }, (oldData) => {
+        const oldAnnotations = (oldData && oldData.image && oldData.image.annotations) || [];
+        return {
+          ...oldData,
+          image: {
+            ...oldData.image,
+            annotations: [...oldAnnotations, ...newAnnotations],
+          },
+        };
       });
-      queryClient.setQueryData({ queryKey: ["image", id] }, (oldData) => ({
-        ...oldData,
-        image: { ...oldData.image, annotations: newAnnotations },
-      }));
       return { previousData };
     },
     onError: (err, context) => {
@@ -146,7 +150,7 @@ export default function ImageEdit() {
     onSuccess: () => {
       toast.success("Annotations saved successfully!", {
         position: "top-right",
-        autoClose: 3000,
+        autoClose: 1000,
       });
     },
   });
@@ -253,6 +257,7 @@ export default function ImageEdit() {
       label: null,
     };
     const updatedAnnotations = [...annotations, annotationWithId];
+    setAnnotations((prev) => [...prev, annotationWithId]);
     debouncedSave([annotationWithId]);
     // Reset polygon drawing state.
     setPolygonPoints([]);
@@ -266,37 +271,57 @@ export default function ImageEdit() {
   // ----------------------------
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Only allow shortcut when in editor mode
+      // Only allow shortcuts when in editor mode
       if (!isEditor) return;
-
-      // For polygon drawing: pressing "f" or "Enter" can start or finish polygon
+  
+      // Toggle polygon mode using "f" key:
       if (e.key.toLowerCase() === "f") {
-        setDrawingMode("polygon");
-        // Reset polygon drawing state
-        setPolygonPoints([]);
-        setCurMousePos(null);
-        setIsPolygonFinished(false);
-        setNewAnnotation(null);
-      } else if (drawingMode === "polygon" && e.key === "Enter") {
-        // Only finalize if there are enough points (e.g. at least 3)
+        if (drawingMode === "polygon") {
+          // If polygon mode is already on, turn it off.
+          setDrawingMode("");
+          setPolygonPoints([]);
+          setCurMousePos(null);
+          setIsPolygonFinished(false);
+          setNewAnnotation(null);
+          setHoveredPointIndex(null);
+        } else {
+          // Activate polygon drawing mode.
+          setDrawingMode("polygon");
+          // Reset polygon drawing state.
+          setPolygonPoints([]);
+          setCurMousePos(null);
+          setIsPolygonFinished(false);
+          setNewAnnotation(null);
+          setHoveredPointIndex(null);
+        }
+      }
+      // Toggle rectangle mode using "d" key:
+      else if (e.key.toLowerCase() === "d") {
+        if (drawingMode === "rectangle") {
+          // If rectangle mode is already on, turn it off.
+          setDrawingMode("");
+          setNewAnnotation(null);
+        } else {
+          // Activate rectangle drawing mode.
+          setDrawingMode("rectangle");
+          // Reset rectangle (and polygon) drawing state.
+          setNewAnnotation(null);
+          setPolygonPoints([]);
+          setCurMousePos(null);
+          setIsPolygonFinished(false);
+          setHoveredPointIndex(null);
+        }
+      }
+      // If in polygon mode and Enter is pressed, finalize polygon:
+      else if (drawingMode === "polygon" && e.key === "Enter") {
         if (polygonPoints.length < 3) {
           toast.error("A polygon must have at least 3 points.");
           return;
         }
-        // Finalize the polygon
         finalizePolygon();
       }
-      // For rectangle drawing: pressing "d" starts rectangle drawing
-      else if (e.key.toLowerCase() === "d") {
-        setDrawingMode("rectangle");
-        // Reset polygon state if any
-        setPolygonPoints([]);
-        setCurMousePos(null);
-        setIsPolygonFinished(false);
-        setNewAnnotation(null);
-      }
     };
-
+  
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
@@ -481,11 +506,6 @@ export default function ImageEdit() {
             </button>
           )}
         </h3>
-        {mutation.isLoading && (
-          <div className="flex justify-center items-center mt-2">
-            <ClipLoader color="#000" size={20} />
-          </div>
-        )}
         <ul className="space-y-2">
           {annotations.map((annotation, idx) => (
             <li
@@ -568,12 +588,20 @@ export default function ImageEdit() {
                   : "bg-white text-blue-600"
               }`}
               onClick={() => {
-                setDrawingMode("rectangle");
-                setNewAnnotation(null);
-                setPolygonPoints([]);
-                setCurMousePos(null);
-                setIsPolygonFinished(false);
-                setHoveredPointIndex(null);
+                // If currently in rectangle mode, toggle it off.
+                if (drawingMode === "rectangle") {
+                  setDrawingMode("");
+                  setNewAnnotation(null);
+                } else {
+                  // Otherwise, activate rectangle drawing:
+                  setDrawingMode("rectangle");
+                  // Reset all drawing-related state:
+                  setNewAnnotation(null);
+                  setPolygonPoints([]);
+                  setCurMousePos(null);
+                  setIsPolygonFinished(false);
+                  setHoveredPointIndex(null);
+                }
               }}
             >
               <FiSquare size={20} />
@@ -585,12 +613,20 @@ export default function ImageEdit() {
                   : "bg-white text-blue-600"
               }`}
               onClick={() => {
-                setDrawingMode("polygon");
-                setPolygonPoints([]);
-                setCurMousePos(null);
-                setIsPolygonFinished(false);
-                setNewAnnotation(null);
-                setHoveredPointIndex(null);
+                // If currently in polygon mode, toggle it off.
+                if (drawingMode === "polygon") {
+                  setDrawingMode("");
+                  setPolygonPoints([]);
+                } else {
+                  // Otherwise, activate polygon drawing:
+                  setDrawingMode("polygon");
+                  // Reset all drawing-related state:
+                  setPolygonPoints([]);
+                  setCurMousePos(null);
+                  setIsPolygonFinished(false);
+                  setNewAnnotation(null);
+                  setHoveredPointIndex(null);
+                }
               }}
             >
               <FiCommand size={20} />
@@ -612,7 +648,7 @@ export default function ImageEdit() {
           onDragEnd={handleDragEnd}
           draggable={newAnnotation === null && drawingMode === ""}
           ref={stageRef}
-          style={{ background: "#ddd" }}
+          style={{ background: "#ddd", cursor: drawingMode ? "crosshair" : "default" }}
           className="bg-slate-400"
         >
           <Layer>
@@ -640,6 +676,10 @@ export default function ImageEdit() {
                     stroke={ann.label?.color || "blue"}
                     strokeWidth={2}
                     dash={[4, 4]}
+                    shadowColor="black"
+                    shadowBlur={10}
+                    shadowOffsetX={5}
+                    shadowOffsetY={5}
                   />
                 );
               }
@@ -676,9 +716,8 @@ export default function ImageEdit() {
                             key={`${ann._id}-point-${index}`}
                             x={x}
                             y={y}
-                            radius={6}
-                            fill="red"
-                            stroke="black"
+                            radius={4}
+                            fill="black"
                             strokeWidth={2}
                           />
                         );
