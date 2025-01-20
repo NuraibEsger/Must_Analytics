@@ -1,4 +1,11 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+// ImageEdit.jsx
+import React, {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  createRef,
+} from "react";
 import {
   Stage,
   Layer,
@@ -6,6 +13,7 @@ import {
   Rect,
   Line,
   Circle,
+  Transformer,
 } from "react-konva";
 import useImage from "use-image";
 import { useParams } from "react-router-dom";
@@ -14,6 +22,7 @@ import {
   saveAnnotations,
   updateAnnotationLabel,
   deleteAnnotation,
+  updateAnnotation, // ensure this is imported from your services
 } from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
@@ -32,6 +41,18 @@ import AddLabelModal from "../components/AddLabelModal";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { useDebouncedCallback } from "use-debounce";
 import { getLabelsByProjectId } from "../services/labelService";
+
+// A helper component for enabling the transformer
+const TransformerComponent = ({ selectedShapeRef }) => {
+  const transformerRef = useRef(null);
+  useEffect(() => {
+    if (selectedShapeRef.current) {
+      transformerRef.current.nodes([selectedShapeRef.current]);
+      transformerRef.current.getLayer().batchDraw();
+    }
+  }, [selectedShapeRef]);
+  return <Transformer ref={transformerRef} />;
+};
 
 const Loading = () => (
   <div className="flex justify-center items-center h-full w-full">
@@ -53,16 +74,23 @@ export default function ImageEdit() {
   const [isEditor, setIsEditor] = useState(false);
   const [projectId, setProjectId] = useState(null);
 
+  // NEW: State to track currently editing annotation.
+  const [editingAnnotationId, setEditingAnnotationId] = useState(null);
+
+  // New states for selection mode.
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+
   // Image properties
   const [imageDimensions, setImageDimensions] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
 
-  // Drawing state
+  // Drawing state:
   // drawingMode can be "" | "rectangle" | "polygon"
   const [drawingMode, setDrawingMode] = useState("");
-  // For rectangles we use newAnnotation as before.
+  // For rectangles we use newAnnotation.
   const [newAnnotation, setNewAnnotation] = useState(null);
-  // For polygon drawing we now use additional state:
+  // For polygon drawing state:
   const [polygonPoints, setPolygonPoints] = useState([]); // array of [x, y]
   const [curMousePos, setCurMousePos] = useState(null);
   const [isPolygonFinished, setIsPolygonFinished] = useState(false);
@@ -72,10 +100,6 @@ export default function ImageEdit() {
   // Stage pan/zoom state
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
-
-  // New states for selection mode.
-  const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
-  const [isSelecting, setIsSelecting] = useState(false);
 
   // Fetch image and related data
   const { isLoading, isError, error } = useQuery({
@@ -114,10 +138,10 @@ export default function ImageEdit() {
   const { data: labelsData } = useQuery(
     ["labels", projectId],
     () => getLabelsByProjectId(projectId),
-    { enabled: !!projectId } // only run if projectId exists
+    { enabled: !!projectId }
   );
 
-  // Mutation for saving annotations
+  // Mutation for saving annotations (for new ones)
   const mutation = useMutation({
     mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
     onMutate: async (newAnnotations) => {
@@ -164,6 +188,7 @@ export default function ImageEdit() {
     },
   });
 
+  // Mutation for updating annotation label (unchanged)
   const updateLabelMutation = useMutation(
     ({ annotationId, labelId }) => updateAnnotationLabel(annotationId, labelId),
     {
@@ -186,6 +211,31 @@ export default function ImageEdit() {
     }
   );
 
+  // NEW: Mutation for updating an annotation (coordinates, bbox, etc.)
+  const updateAnnotationMutation = useMutation(
+    ({ annotationId, data }) => updateAnnotation(annotationId, data),
+    {
+      onSuccess: (data, variables) => {
+        const updatedAnnotation = data.data.annotation;
+        setAnnotations((prevAnnotations) =>
+          prevAnnotations.map((ann) =>
+            ann._id === variables.annotationId ? updatedAnnotation : ann
+          )
+        );
+        toast.success("Annotation updated successfully.");
+      },
+      onError: (error) => {
+        console.error("Error updating annotation:", error);
+        toast.error("Failed to update annotation.");
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey: ["image", id] });
+      },
+    }
+  );
+  
+
+  // Mutation for deleting an annotation (unchanged)
   const deleteAnnotationMutation = useMutation(
     (annotationId) => deleteAnnotation(annotationId),
     {
@@ -211,11 +261,18 @@ export default function ImageEdit() {
     }
   );
 
-  const debouncedSave = useDebouncedCallback(
-    (newAnnotations) => {
-      mutation.mutate(newAnnotations);
+  const debouncedSave = useDebouncedCallback((newAnnotations) => {
+    mutation.mutate(newAnnotations);
+  }, 500);
+
+  const debouncedUpdateAnnotation = useDebouncedCallback(
+    ({ annotationId, data }) => {
+      updateAnnotationMutation.mutate({
+        annotationId,
+        data,
+      });
     },
-    500 // delay
+    500 // 500ms delay (adjust as needed)
   );
 
   // Toggle Add Label modal
@@ -226,14 +283,12 @@ export default function ImageEdit() {
   // Handle label selection changes
   const handleLabelChange = (annotationId, labelId) => {
     if (!isEditor) return;
-
     updateLabelMutation.mutate({ annotationId, labelId });
   };
 
   // Remove an annotation
   const removeAnnotation = (annotationId) => {
     if (!isEditor) return;
-
     deleteAnnotationMutation.mutate(annotationId);
   };
 
@@ -255,7 +310,6 @@ export default function ImageEdit() {
       toast.error("A polygon must have at least 3 points.");
       return;
     }
-    // Flatten the array-of-arrays into a single array.
     const flattenedPoints = polygonPoints.reduce(
       (acc, curr) => acc.concat(curr),
       []
@@ -268,10 +322,9 @@ export default function ImageEdit() {
     ];
     const annotationWithId = {
       type: "polygon",
-      coordinates: closedPoints, // a flat array of numbers
+      coordinates: closedPoints,
       label: null,
     };
-    const updatedAnnotations = [...annotations, annotationWithId];
     setAnnotations((prev) => [...prev, annotationWithId]);
     debouncedSave([annotationWithId]);
     // Reset polygon drawing state.
@@ -280,15 +333,14 @@ export default function ImageEdit() {
     setIsPolygonFinished(false);
     setDrawingMode("");
     setHoveredPointIndex(null);
-  }, [polygonPoints, annotations, debouncedSave]);
+  }, [polygonPoints, debouncedSave]);
+
   // ----------------------------
   // KEYBOARD HANDLERS
   // ----------------------------
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isEditor) return;
-
-      // Toggle selection mode with "s" key.
       if (e.key.toLowerCase() === "s") {
         if (drawingMode) {
           setDrawingMode("");
@@ -298,7 +350,6 @@ export default function ImageEdit() {
           setIsPolygonFinished(false);
           setHoveredPointIndex(null);
         }
-        // Toggle selection mode.
         setIsSelecting((prev) => {
           const newValue = !prev;
           if (!newValue) {
@@ -308,8 +359,6 @@ export default function ImageEdit() {
         });
         return;
       }
-
-      // Existing keys for polygon (f) and rectangle (d)
       if (e.key.toLowerCase() === "f") {
         if (drawingMode === "polygon") {
           setDrawingMode("");
@@ -326,7 +375,6 @@ export default function ImageEdit() {
           setNewAnnotation(null);
           setHoveredPointIndex(null);
         }
-        // Exit selection mode when starting drawing.
         setIsSelecting(false);
       } else if (e.key.toLowerCase() === "d") {
         if (drawingMode === "rectangle") {
@@ -340,7 +388,6 @@ export default function ImageEdit() {
           setIsPolygonFinished(false);
           setHoveredPointIndex(null);
         }
-        // Exit selection mode.
         setIsSelecting(false);
       } else if (drawingMode === "polygon" && e.key === "Enter") {
         if (polygonPoints.length < 3) {
@@ -350,29 +397,23 @@ export default function ImageEdit() {
         finalizePolygon();
       }
     };
-
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isEditor, drawingMode, polygonPoints, finalizePolygon, isSelecting]);
+  }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
 
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
   // ----------------------------
-  // Helper to convert stage coordinates to relative ones.
   const getRelativePos = (pos) => ({
     x: (pos.x - stagePosition.x) / stageScale,
     y: (pos.y - stagePosition.y) / stageScale,
   });
 
-  // Mouse down:
-  // - For rectangle, initiate drawing.
-  // - For polygon, add new point or finish if close to starting point.
   const handleMouseDown = (e) => {
     if (!isEditor || !drawingMode) return;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     const relPos = getRelativePos(pointerPos);
-
     if (drawingMode === "rectangle") {
       setNewAnnotation({
         type: "rectangle",
@@ -383,22 +424,18 @@ export default function ImageEdit() {
       });
       return;
     }
-
     if (drawingMode === "polygon") {
-      // If we have at least 3 points, check if clicked close to the first one.
       if (polygonPoints.length >= 3) {
         const [startX, startY] = polygonPoints[0];
         const dx = relPos.x - startX;
         const dy = relPos.y - startY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < 10) {
-          // Close the polygon
           setIsPolygonFinished(true);
           finalizePolygon();
           return;
         }
       }
-      // Otherwise, add new point.
       setPolygonPoints([...polygonPoints, [relPos.x, relPos.y]]);
     }
   };
@@ -407,10 +444,7 @@ export default function ImageEdit() {
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     const relPos = getRelativePos(pointerPos);
-
     if (!isEditor) return;
-
-    // For rectangle drawing, update dimensions.
     if (newAnnotation && newAnnotation.type === "rectangle") {
       const newWidth = relPos.x - newAnnotation.x;
       const newHeight = relPos.y - newAnnotation.y;
@@ -421,14 +455,11 @@ export default function ImageEdit() {
       });
       return;
     }
-
-    // For polygon drawing, update current mouse position (for live preview)
     if (drawingMode === "polygon") {
       setCurMousePos([relPos.x, relPos.y]);
     }
   };
 
-  // Mouse up is used for rectangles; polygons finish on click.
   const handleMouseUp = () => {
     if (!isEditor) return;
     if (newAnnotation && newAnnotation.type === "rectangle") {
@@ -440,9 +471,8 @@ export default function ImageEdit() {
         height: newAnnotation.height,
         label: null,
       };
-      const updatedAnnotations = [...annotations, annotationWithId];
-      setAnnotations(updatedAnnotations);
-      debouncedSave([newAnnotation]);
+      setAnnotations((prev) => [...prev, annotationWithId]);
+      debouncedSave([annotationWithId]);
       setNewAnnotation(null);
       setDrawingMode("");
     }
@@ -457,15 +487,12 @@ export default function ImageEdit() {
     const stage = e.target.getStage();
     const oldScale = stageScale;
     const pointer = stage.getPointerPosition();
-
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     setStageScale(newScale);
-
     const mousePointTo = {
       x: (pointer.x - stagePosition.x) / oldScale,
       y: (pointer.y - stagePosition.y) / oldScale,
     };
-
     const newPos = {
       x: pointer.x - mousePointTo.x * newScale,
       y: pointer.y - mousePointTo.y * newScale,
@@ -474,10 +501,7 @@ export default function ImageEdit() {
   };
 
   const handleDragEnd = (e) => {
-    setStagePosition({
-      x: e.target.x(),
-      y: e.target.y(),
-    });
+    setStagePosition({ x: e.target.x(), y: e.target.y() });
   };
 
   // Load the image.
@@ -536,7 +560,7 @@ export default function ImageEdit() {
           )}
         </h3>
         <ul className="space-y-2">
-          {annotations.map((annotation, idx) => (
+          {annotations?.filter((a) => a !== undefined && a !== null).map((annotation, idx) => (
             <li
               key={`${annotation._id}-${idx}`}
               className={`flex justify-between items-center bg-gray-50 p-2 rounded cursor-pointer ${
@@ -547,6 +571,7 @@ export default function ImageEdit() {
               onClick={() => {
                 if (isSelecting) {
                   setSelectedAnnotationId(annotation._id);
+                  setEditingAnnotationId(annotation._id);
                 }
               }}
             >
@@ -633,7 +658,6 @@ export default function ImageEdit() {
                   : "bg-white text-green-600"
               }`}
               onClick={() => {
-                // Clear any drawing mode first.
                 if (drawingMode) {
                   setDrawingMode("");
                   setNewAnnotation(null);
@@ -642,7 +666,6 @@ export default function ImageEdit() {
                   setIsPolygonFinished(false);
                   setHoveredPointIndex(null);
                 }
-                // Toggle selection mode.
                 setIsSelecting((prev) => {
                   const newValue = !prev;
                   if (!newValue) {
@@ -662,14 +685,11 @@ export default function ImageEdit() {
                   : "bg-white text-blue-600"
               }`}
               onClick={() => {
-                // If currently in rectangle mode, toggle it off.
                 if (drawingMode === "rectangle") {
                   setDrawingMode("");
                   setNewAnnotation(null);
                 } else {
-                  // Otherwise, activate rectangle drawing:
                   setDrawingMode("rectangle");
-                  // Reset all drawing-related state:
                   setNewAnnotation(null);
                   setPolygonPoints([]);
                   setCurMousePos(null);
@@ -688,14 +708,11 @@ export default function ImageEdit() {
                   : "bg-white text-blue-600"
               }`}
               onClick={() => {
-                // If currently in polygon mode, toggle it off.
                 if (drawingMode === "polygon") {
                   setDrawingMode("");
                   setPolygonPoints([]);
                 } else {
-                  // Otherwise, activate polygon drawing:
                   setDrawingMode("polygon");
-                  // Reset all drawing-related state:
                   setPolygonPoints([]);
                   setCurMousePos(null);
                   setIsPolygonFinished(false);
@@ -732,62 +749,136 @@ export default function ImageEdit() {
         >
           <Layer>
             <KonvaImage image={konvaImage} x={imageX} y={imageY} />
-            {annotations.map((ann) => {
+
+            {annotations?.map((ann) => {
+              if (!ann) return null; 
               if (hiddenAnnotations.includes(ann._id)) return null;
 
               if (ann.type === "rectangle") {
-                const x = ann.x ?? (ann.bbox && ann.bbox[0]);
-                const y = ann.y ?? (ann.bbox && ann.bbox[1]);
-                const width = ann.width ?? (ann.bbox && ann.bbox[2]);
-                const height = ann.height ?? (ann.bbox && ann.bbox[3]);
-
-                if (x == null || y == null || width == null || height == null) {
-                  return null;
+                // Create a ref for this rectangle
+                const shapeRef = createRef();
+                let x = ann.x,
+                  y = ann.y,
+                  width = ann.width,
+                  height = ann.height;
+                if (
+                  typeof x !== "number" ||
+                  typeof y !== "number" ||
+                  typeof width !== "number" ||
+                  typeof height !== "number"
+                ) {
+                  if (ann.bbox) {
+                    if (
+                      Array.isArray(ann.bbox[0]) &&
+                      ann.bbox.length === 1 &&
+                      ann.bbox[0].every((v) => typeof v === "number")
+                    ) {
+                      [x, y, width, height] = ann.bbox[0];
+                    } else {
+                      [x, y, width, height] = ann.bbox;
+                    }
+                  } else {
+                    return null;
+                  }
                 }
 
-                // Check if this annotation is selected.
                 return (
-                  <Rect
-                    key={ann._id}
-                    x={x}
-                    y={y}
-                    width={width}
-                    height={height}
-                    stroke={ann.label?.color || "blue"}
-                    strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
-                    dash={[4, 4]}
-                    shadowColor="black"
-                    shadowBlur={10}
-                    shadowOffsetX={5}
-                    shadowOffsetY={5}
-                    onClick={() => {
-                      if (isSelecting) {
-                        setSelectedAnnotationId(ann._id);
-                      }
-                    }}
-                    onMouseEnter={(e) => {
-                      // Optionally, change cursor or store hover state
-                      e.target.to({
-                        strokeWidth: 4,
-                        duration: 0.2,
-                      });
-                    }}
-                    onMouseLeave={(e) => {
-                      // Reset hover styling if not selected
-                      e.target.to({
-                        strokeWidth: selectedAnnotationId === ann._id ? 4 : 2,
-                        duration: 0.2,
-                      });
-                    }}
-                  />
+                  <React.Fragment key={ann._id}>
+                    <Rect
+                      ref={shapeRef}
+                      x={x}
+                      y={y}
+                      width={width}
+                      height={height}
+                      stroke={ann.label?.color || "blue"}
+                      strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
+                      dash={[4, 4]}
+                      shadowColor="black"
+                      shadowBlur={10}
+                      shadowOffsetX={5}
+                      shadowOffsetY={5}
+                      onClick={() => {
+                        if (isSelecting) {
+                          setSelectedAnnotationId(ann._id);
+                          setEditingAnnotationId(ann._id);
+                        }
+                      }}
+                      onTransformEnd={(e) => {
+                        const node = shapeRef.current;
+                        if (!node) return;
+                        
+                        const scaleX = node.scaleX();
+                        const scaleY = node.scaleY();
+                        // Reset the node's scale so that width/height reflect the actual dimensions.
+                        node.scaleX(1);
+                        node.scaleY(1);
+                        
+                        const newX = node.x();
+                        const newY = node.y();
+                        const newWidth = Math.max(5, node.width() * scaleX);
+                        const newHeight = Math.max(5, node.height() * scaleY);
+                        
+                        // Build bbox array
+                        const newBbox = [newX, newY, newWidth, newHeight];
+                        
+                        // Create updated annotation (preserving _id)
+                        const updatedAnnotation = { ...ann, bbox: newBbox };
+                        
+                        // Optimistically update local state
+                        setAnnotations((prev) =>
+                          prev.map((a) =>
+                            a && a._id === ann._id ? updatedAnnotation : a
+                          )
+                        );
+                        
+                        // Call the debounced update (PUT endpoint) with bbox
+                        debouncedUpdateAnnotation({
+                          annotationId: ann._id,
+                          data: { bbox: newBbox }
+                        });
+                      }}
+                    />
+                    {selectedAnnotationId === ann._id && (
+                      <TransformerComponent selectedShapeRef={shapeRef} />
+                    )}
+                  </React.Fragment>
                 );
               }
 
               if (ann.type === "polygon") {
-                const flattenCoordinates = (coordinates) =>
-                  Array.isArray(coordinates[0]) ? coordinates[0] : coordinates;
-                const flatPoints = flattenCoordinates(ann.coordinates);
-                const isSelected = selectedAnnotationId === ann._id;
+                // Unwrapping and flattening logic
+                if (!ann.coordinates || ann.coordinates.length === 0) {
+                  console.warn("Annotation has no coordinates", ann);
+                  return null;
+                }
+
+                let flatPoints;
+                if (
+                  Array.isArray(ann.coordinates[0]) &&
+                  ann.coordinates.length === 1 &&
+                  ann.coordinates[0].every((v) => typeof v === "number")
+                ) {
+                  flatPoints = ann.coordinates[0];
+                } else if (
+                  Array.isArray(ann.coordinates[0]) &&
+                  ann.coordinates[0].length === 2
+                ) {
+                  flatPoints = ann.coordinates.flat();
+                } else {
+                  flatPoints = ann.coordinates;
+                }
+
+                if (!flatPoints.every((p) => typeof p === "number")) {
+                  console.error("Invalid points in annotation:", flatPoints);
+                  return null;
+                }
+
+                // Create control points from flatPoints.
+                const controlPoints = [];
+                for (let i = 0; i < flatPoints.length; i += 2) {
+                  controlPoints.push([flatPoints[i], flatPoints[i + 1]]);
+                }
+
                 return (
                   <React.Fragment key={ann._id}>
                     <Line
@@ -806,95 +897,67 @@ export default function ImageEdit() {
                       onClick={() => {
                         if (isSelecting) {
                           setSelectedAnnotationId(ann._id);
+                          setEditingAnnotationId(ann._id);
                         }
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.to({
-                          strokeWidth: 5,
-                          duration: 0.2,
-                        });
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.to({
-                          strokeWidth: selectedAnnotationId === ann._id ? 5 : 3,
-                          duration: 0.2,
-                        });
                       }}
                     />
-
-                    {isSelecting &&
-                      flatPoints.map((point, index) => {
-                        if (index % 2 === 0) {
-                          const x = point;
-                          const y = flatPoints[index + 1];
-                          return (
-                            <Circle
-                              key={`${ann._id}-point-${index}`}
-                              x={x}
-                              y={y}
-                              radius={isSelected ? 10 : 6}
-                              fill="transparent"
-                              stroke="silver"
-                              strokeWidth={2}
-                            />
-                          );
-                        }
-                        return null;
-                      })}
+                    {selectedAnnotationId === ann._id &&
+                      controlPoints.map((pt, index) => (
+                        <Circle
+                          key={`polygon-${ann._id}-point-${index}`}
+                          x={pt[0]}
+                          y={pt[1]}
+                          radius={10}
+                          fill="transparent"
+                          stroke="silver"
+                          draggable
+                          onDragMove={(e) => {
+                            // Optimistically update the control point position in local state
+                            const newX = e.target.x();
+                            const newY = e.target.y();
+                            const newControlPoints = controlPoints.map((p, idx) =>
+                              idx === index ? [newX, newY] : p
+                            );
+                            const newFlatPoints = newControlPoints.reduce((acc, p) => acc.concat(p), []);
+                            // Update local state immediately.
+                            const optimisticAnnotation = { ...ann, coordinates: newFlatPoints };
+                            setAnnotations((prev) =>
+                              prev.map((a) => (a && a._id === ann._id ? optimisticAnnotation : a))
+                            );
+                            // (Optionally, you could also update on every drag move if desired.)
+                          }}
+                          onDragEnd={(e) => {
+                            const newX = e.target.x();
+                            const newY = e.target.y();
+                            const newControlPoints = controlPoints.map((p, idx) =>
+                              idx === index ? [newX, newY] : p
+                            );
+                            const newFlatPoints = newControlPoints.reduce((acc, p) => acc.concat(p), []);
+                            
+                            // Create the updated annotation.
+                            const updatedAnnotation = { ...ann, coordinates: newFlatPoints };
+                            
+                            // Optimistically update local state.
+                            setAnnotations((prev) =>
+                              prev.map((a) => (a && a._id === ann._id ? updatedAnnotation : a))
+                            );
+                            
+                            // Call the debounced update (PATCH call) so that multiple rapid changes are debounced.
+                            debouncedUpdateAnnotation({
+                              annotationId: ann._id,
+                              data: { coordinates: newFlatPoints },
+                            });
+                          }}                     
+                          onMouseEnter={() => setHoveredPointIndex(index)}
+                          onMouseLeave={() => setHoveredPointIndex(null)}
+                        />
+                      ))}
                   </React.Fragment>
                 );
               }
+
               return null;
             })}
-
-            {/* Render the new annotation (in-progress rectangle) if any */}
-            {newAnnotation && newAnnotation.type === "rectangle" && (
-              <Rect
-                x={newAnnotation.x}
-                y={newAnnotation.y}
-                width={newAnnotation.width}
-                height={newAnnotation.height}
-                stroke="red"
-                strokeWidth={2}
-                dash={[4, 4]}
-              />
-            )}
-
-            {/* Render the in-progress polygon preview */}
-            {drawingMode === "polygon" && previewPolygonPoints.length > 0 && (
-              <>
-                <Line
-                  points={previewPolygonPoints}
-                  stroke="blue"
-                  strokeWidth={3}
-                  lineJoin="round"
-                  lineCap="round"
-                  dash={[4, 4]}
-                />
-                {polygonPoints.map((point, idx) => (
-                  <Circle
-                    key={`polygon-point-${idx}`}
-                    x={point[0]}
-                    y={point[1]}
-                    radius={hoveredPointIndex === idx ? 10 : 6}
-                    fill={hoveredPointIndex === idx ? "orange" : "blue"}
-                    stroke="black"
-                    strokeWidth={2}
-                    draggable
-                    onDragMove={(e) => {
-                      const newPoint = [e.target.x(), e.target.y()];
-                      setPolygonPoints((prevPoints) =>
-                        prevPoints.map((pt, index) =>
-                          index === idx ? newPoint : pt
-                        )
-                      );
-                    }}
-                    onMouseEnter={() => setHoveredPointIndex(idx)}
-                    onMouseLeave={() => setHoveredPointIndex(null)}
-                  />
-                ))}
-              </>
-            )}
           </Layer>
         </Stage>
       </div>

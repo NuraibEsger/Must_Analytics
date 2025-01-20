@@ -808,6 +808,26 @@ app.post("/image/:id/annotations", async (req, res) => {
   }
 });
 
+app.patch("/annotations/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Use $set to update only the provided fields.
+    const updateData = req.body ;
+
+    // The { new: true } option returns the updated document.
+    const updatedAnnotation = await Annotation.findByIdAndUpdate(id, updateData, { new: true });
+    
+    if (!updatedAnnotation) {
+      return res.status(404).json({ message: "Annotation not found" });
+    }
+    
+    res.json({ annotation: updatedAnnotation });
+  } catch (error) {
+    console.error("Error updating annotation:", error);
+    res.status(500).json({ message: "Server error updating annotation" });
+  }
+});
+
 app.patch("/annotations/:id/label", async (req, res) => {
   const { id } = req.params;
   const { labelId } = req.body;
