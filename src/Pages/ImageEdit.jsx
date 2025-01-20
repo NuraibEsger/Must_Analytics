@@ -560,80 +560,82 @@ export default function ImageEdit() {
           )}
         </h3>
         <ul className="space-y-2">
-          {annotations?.filter((a) => a !== undefined && a !== null).map((annotation, idx) => (
-            <li
-              key={`${annotation._id}-${idx}`}
-              className={`flex justify-between items-center bg-gray-50 p-2 rounded cursor-pointer ${
-                selectedAnnotationId === annotation._id
-                  ? "ring-2 ring-indigo-600"
-                  : ""
-              }`}
-              onClick={() => {
-                if (isSelecting) {
-                  setSelectedAnnotationId(annotation._id);
-                  setEditingAnnotationId(annotation._id);
-                }
-              }}
-            >
-              <div className="flex items-center space-x-2">
-                <FiBox />
-                <select
-                  disabled={!isEditor}
-                  value={annotation.label?._id || ""}
-                  onChange={(e) =>
-                    handleLabelChange(annotation._id, e.target.value)
+          {annotations
+            ?.filter((a) => a !== undefined && a !== null)
+            .map((annotation, idx) => (
+              <li
+                key={`${annotation._id}-${idx}`}
+                className={`flex justify-between items-center bg-gray-50 p-2 rounded cursor-pointer ${
+                  selectedAnnotationId === annotation._id
+                    ? "ring-2 ring-indigo-600"
+                    : ""
+                }`}
+                onClick={() => {
+                  if (isSelecting) {
+                    setSelectedAnnotationId(annotation._id);
+                    setEditingAnnotationId(annotation._id);
                   }
-                  className={`border border-gray-300 rounded-md px-2 py-1 ${
-                    !isEditor ? "bg-gray-200 cursor-not-allowed" : ""
-                  }`}
-                  aria-label={`Select Label for Annotation ${annotation._id}`}
-                >
-                  <option value="" disabled={annotation.label}>
-                    Select Label
-                  </option>
-                  {labelsData && Array.isArray(labelsData)
-                    ? labelsData.map((label) => (
-                        <option
-                          key={label._id}
-                          value={label._id}
-                          disabled={annotation.label?._id === label._id}
-                          style={
-                            selectedAnnotationId === annotation._id &&
-                            annotation.label?._id === label._id
-                              ? { backgroundColor: "#e0f7fa" }
-                              : {}
-                          }
-                        >
-                          {label.name}
-                        </option>
-                      ))
-                    : null}
-                </select>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  className="text-gray-500 hover:text-gray-700"
-                  onClick={() => toggleVisibility(annotation._id)}
-                  aria-label={`Toggle Visibility for Annotation ${annotation._id}`}
-                >
-                  {hiddenAnnotations.includes(annotation._id) ? (
-                    <FiEyeOff />
-                  ) : (
-                    <FiEye />
-                  )}
-                </button>
-                {isEditor && (
-                  <button
-                    className="text-red-500 hover:text-red-700"
-                    onClick={() => removeAnnotation(annotation._id)}
-                    aria-label={`Remove Annotation ${annotation._id}`}
+                }}
+              >
+                <div className="flex items-center space-x-2">
+                  <FiBox />
+                  <select
+                    disabled={!isEditor}
+                    value={annotation.label?._id || ""}
+                    onChange={(e) =>
+                      handleLabelChange(annotation._id, e.target.value)
+                    }
+                    className={`border border-gray-300 rounded-md px-2 py-1 ${
+                      !isEditor ? "bg-gray-200 cursor-not-allowed" : ""
+                    }`}
+                    aria-label={`Select Label for Annotation ${annotation._id}`}
                   >
-                    <FiTrash />
+                    <option value="" disabled={annotation.label}>
+                      Select Label
+                    </option>
+                    {labelsData && Array.isArray(labelsData)
+                      ? labelsData.map((label) => (
+                          <option
+                            key={label._id}
+                            value={label._id}
+                            disabled={annotation.label?._id === label._id}
+                            style={
+                              selectedAnnotationId === annotation._id &&
+                              annotation.label?._id === label._id
+                                ? { backgroundColor: "#e0f7fa" }
+                                : {}
+                            }
+                          >
+                            {label.name}
+                          </option>
+                        ))
+                      : null}
+                  </select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => toggleVisibility(annotation._id)}
+                    aria-label={`Toggle Visibility for Annotation ${annotation._id}`}
+                  >
+                    {hiddenAnnotations.includes(annotation._id) ? (
+                      <FiEyeOff />
+                    ) : (
+                      <FiEye />
+                    )}
                   </button>
-                )}
-              </div>
-            </li>
-          ))}
+                  {isEditor && (
+                    <button
+                      className="text-red-500 hover:text-red-700"
+                      onClick={() => removeAnnotation(annotation._id)}
+                      aria-label={`Remove Annotation ${annotation._id}`}
+                    >
+                      <FiTrash />
+                    </button>
+                  )}
+                </div>
+              </li>
+            ))}
         </ul>
       </div>
 
@@ -750,8 +752,69 @@ export default function ImageEdit() {
           <Layer>
             <KonvaImage image={konvaImage} x={imageX} y={imageY} />
 
+            {drawingMode === "rectangle" && newAnnotation && (
+              <Rect
+                x={newAnnotation.x}
+                y={newAnnotation.y}
+                width={newAnnotation.width}
+                height={newAnnotation.height}
+                stroke="silver"
+                strokeWidth={2}
+                dash={[4, 4]}
+                fill="transparent"
+              />
+            )}
+
+            {/* Polygon Preview - for in-progress polygon drawing */}
+            {drawingMode === "polygon" && polygonPoints.length > 0 && (
+              <>
+                {/* The preview polygon line */}
+                <Line
+                  points={(() => {
+                    let pts = polygonPoints.reduce(
+                      (acc, curr) => acc.concat(curr),
+                      []
+                    );
+                    // When hovering, add the current mouse position.
+                    if (curMousePos) pts = pts.concat(curMousePos);
+                    return pts;
+                  })()}
+                  stroke="silver"
+                  strokeWidth={2}
+                  lineJoin="round"
+                  lineCap="round"
+                  dash={[4, 4]}
+                  fill="transparent"
+                />
+                {/* Render circle markers for each polygon vertex */}
+                {polygonPoints.map((pt, index) => (
+                  <Circle
+                    key={`preview-polygon-point-${index}`}
+                    x={pt[0]}
+                    y={pt[1]}
+                    radius={7}
+                    fill="transparent"
+                    stroke="silver"
+                    strokeWidth={1}
+                  />
+                ))}
+                {/* Optionally, show current mouse position marker */}
+                {curMousePos && (
+                  <Circle
+                    key="preview-current-mouse"
+                    x={curMousePos[0]}
+                    y={curMousePos[1]}
+                    radius={4}
+                    fill="orange"
+                    stroke="black"
+                    strokeWidth={1}
+                  />
+                )}
+              </>
+            )}
+
             {annotations?.map((ann) => {
-              if (!ann) return null; 
+              if (!ann) return null;
               if (hiddenAnnotations.includes(ann._id)) return null;
 
               if (ann.type === "rectangle") {
@@ -806,35 +869,35 @@ export default function ImageEdit() {
                       onTransformEnd={(e) => {
                         const node = shapeRef.current;
                         if (!node) return;
-                        
+
                         const scaleX = node.scaleX();
                         const scaleY = node.scaleY();
                         // Reset the node's scale so that width/height reflect the actual dimensions.
                         node.scaleX(1);
                         node.scaleY(1);
-                        
+
                         const newX = node.x();
                         const newY = node.y();
                         const newWidth = Math.max(5, node.width() * scaleX);
                         const newHeight = Math.max(5, node.height() * scaleY);
-                        
+
                         // Build bbox array
                         const newBbox = [newX, newY, newWidth, newHeight];
-                        
+
                         // Create updated annotation (preserving _id)
                         const updatedAnnotation = { ...ann, bbox: newBbox };
-                        
+
                         // Optimistically update local state
                         setAnnotations((prev) =>
                           prev.map((a) =>
                             a && a._id === ann._id ? updatedAnnotation : a
                           )
                         );
-                        
+
                         // Call the debounced update (PUT endpoint) with bbox
                         debouncedUpdateAnnotation({
                           annotationId: ann._id,
-                          data: { bbox: newBbox }
+                          data: { bbox: newBbox },
                         });
                       }}
                     />
@@ -915,39 +978,57 @@ export default function ImageEdit() {
                             // Optimistically update the control point position in local state
                             const newX = e.target.x();
                             const newY = e.target.y();
-                            const newControlPoints = controlPoints.map((p, idx) =>
-                              idx === index ? [newX, newY] : p
+                            const newControlPoints = controlPoints.map(
+                              (p, idx) => (idx === index ? [newX, newY] : p)
                             );
-                            const newFlatPoints = newControlPoints.reduce((acc, p) => acc.concat(p), []);
+                            const newFlatPoints = newControlPoints.reduce(
+                              (acc, p) => acc.concat(p),
+                              []
+                            );
                             // Update local state immediately.
-                            const optimisticAnnotation = { ...ann, coordinates: newFlatPoints };
+                            const optimisticAnnotation = {
+                              ...ann,
+                              coordinates: newFlatPoints,
+                            };
                             setAnnotations((prev) =>
-                              prev.map((a) => (a && a._id === ann._id ? optimisticAnnotation : a))
+                              prev.map((a) =>
+                                a && a._id === ann._id
+                                  ? optimisticAnnotation
+                                  : a
+                              )
                             );
                             // (Optionally, you could also update on every drag move if desired.)
                           }}
                           onDragEnd={(e) => {
                             const newX = e.target.x();
                             const newY = e.target.y();
-                            const newControlPoints = controlPoints.map((p, idx) =>
-                              idx === index ? [newX, newY] : p
+                            const newControlPoints = controlPoints.map(
+                              (p, idx) => (idx === index ? [newX, newY] : p)
                             );
-                            const newFlatPoints = newControlPoints.reduce((acc, p) => acc.concat(p), []);
-                            
+                            const newFlatPoints = newControlPoints.reduce(
+                              (acc, p) => acc.concat(p),
+                              []
+                            );
+
                             // Create the updated annotation.
-                            const updatedAnnotation = { ...ann, coordinates: newFlatPoints };
-                            
+                            const updatedAnnotation = {
+                              ...ann,
+                              coordinates: newFlatPoints,
+                            };
+
                             // Optimistically update local state.
                             setAnnotations((prev) =>
-                              prev.map((a) => (a && a._id === ann._id ? updatedAnnotation : a))
+                              prev.map((a) =>
+                                a && a._id === ann._id ? updatedAnnotation : a
+                              )
                             );
-                            
+
                             // Call the debounced update (PATCH call) so that multiple rapid changes are debounced.
                             debouncedUpdateAnnotation({
                               annotationId: ann._id,
                               data: { coordinates: newFlatPoints },
                             });
-                          }}                     
+                          }}
                           onMouseEnter={() => setHoveredPointIndex(index)}
                           onMouseLeave={() => setHoveredPointIndex(null)}
                         />
