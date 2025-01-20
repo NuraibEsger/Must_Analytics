@@ -794,6 +794,7 @@ export default function ImageEdit() {
                       points={flatPoints}
                       stroke={ann.label?.color || "blue"}
                       strokeWidth={selectedAnnotationId === ann._id ? 5 : 3}
+                      fill={ann.label ? `${ann.label.color}33` : "transparent"}
                       lineJoin="round"
                       lineCap="round"
                       closed
@@ -821,23 +822,25 @@ export default function ImageEdit() {
                       }}
                     />
 
-                    {flatPoints.map((point, index) => {
-                      if (index % 2 === 0) {
-                        const x = point;
-                        const y = flatPoints[index + 1];
-                        return (
-                          <Circle
-                            key={`${ann._id}-point-${index}`}
-                            x={x}
-                            y={y}
-                            radius={isSelected ? 6 : 4} // larger circle when selected
-                            fill="black"
-                            strokeWidth={2}
-                          />
-                        );
-                      }
-                      return null;
-                    })}
+                    {isSelecting &&
+                      flatPoints.map((point, index) => {
+                        if (index % 2 === 0) {
+                          const x = point;
+                          const y = flatPoints[index + 1];
+                          return (
+                            <Circle
+                              key={`${ann._id}-point-${index}`}
+                              x={x}
+                              y={y}
+                              radius={isSelected ? 10 : 6}
+                              fill="transparent"
+                              stroke="silver"
+                              strokeWidth={2}
+                            />
+                          );
+                        }
+                        return null;
+                      })}
                   </React.Fragment>
                 );
               }

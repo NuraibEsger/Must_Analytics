@@ -12,9 +12,7 @@ import { ToastContainer } from "react-toastify";
 import NotFound from "./Pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AcceptInvite from "./components/AcceptInvite";
-import { lazy, Suspense } from "react";
-
-const ImageEdit = lazy(() => import("./Pages/ImageEdit"));
+import ImageEdit from "./Pages/ImageEdit";
 
 const router = createBrowserRouter([
   {
@@ -50,9 +48,7 @@ const router = createBrowserRouter([
         path: "/edit-image/:id",
         element: (
           <ProtectedRoute>
-            <Suspense fallback={<div>Loading image editor...</div>}>
               <ImageEdit />
-            </Suspense>
           </ProtectedRoute>
         ),
       },
