@@ -625,6 +625,9 @@ app.put(
         return res.status(404).json({ message: "Project not found" });
       }
 
+      // Capture the current (old) labels before updating
+      const oldLabelIds = project.labels.map((labelId) => labelId.toString());
+
       project.name = name || project.name;
       project.description = description;
 
@@ -640,27 +643,44 @@ app.put(
         project.images.push(...savedImages.map((img) => img._id));
       }
 
-      // Ensure `labels` is treated as an array
+      // Ensure labels is treated as an array
       const labelArray = Array.isArray(labels) ? labels : [labels];
-
-      // Update labels if provided
-      let labelIds = [];
-
+      let newLabelIds = [];
       if (labelArray?.length > 0) {
-        labelIds = await Promise.all(
+        newLabelIds = await Promise.all(
           labelArray.map(async (labelId) => {
             const label = await Label.findById(labelId);
-            if (!label) throw new Error(`Label with ID ${labelId} not found`);
-            return label._id;
+            if (!label)
+              throw new Error(`Label with ID ${labelId} not found`);
+            return label._id.toString();
           })
         );
-        project.labels = labelIds;
+        project.labels = newLabelIds;
+      } else {
+        project.labels = [];
       }
 
       const updatedProject = await project.save();
 
+      // Determine which labels were removed
+      const removedLabels = oldLabelIds.filter(
+        (oldId) => !newLabelIds.includes(oldId)
+      );
+
+      // For each removed label, remove the project id from the label document
       await Promise.all(
-        updatedProject.labels.map(async (labelId) => {
+        removedLabels.map(async (labelId) => {
+          await Label.findByIdAndUpdate(
+            labelId,
+            { $pull: { projects: updatedProject._id } },
+            { new: true }
+          );
+        })
+      );
+
+      // For each newly added label, ensure the label document contains the project id
+      await Promise.all(
+        newLabelIds.map(async (labelId) => {
           await Label.findByIdAndUpdate(
             labelId,
             { $addToSet: { projects: updatedProject._id } },
@@ -668,7 +688,7 @@ app.put(
           );
         })
       );
-      
+
       res.json({
         message: "Project updated successfully",
         project: updatedProject,
