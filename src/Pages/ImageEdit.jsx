@@ -854,6 +854,7 @@ export default function ImageEdit() {
                       width={width}
                       height={height}
                       stroke={ann.label?.color || "blue"}
+                      fill={ann.label ? `${ann.label.color}33` : "transparent"}
                       strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
                       dash={[4, 4]}
                       shadowColor="black"
@@ -975,6 +976,7 @@ export default function ImageEdit() {
                           stroke="silver"
                           draggable
                           onDragMove={(e) => {
+                            e.cancelBubble = true;
                             // Optimistically update the control point position in local state
                             const newX = e.target.x();
                             const newY = e.target.y();
@@ -1000,6 +1002,7 @@ export default function ImageEdit() {
                             // (Optionally, you could also update on every drag move if desired.)
                           }}
                           onDragEnd={(e) => {
+                            e.cancelBubble = true;
                             const newX = e.target.x();
                             const newY = e.target.y();
                             const newControlPoints = controlPoints.map(
