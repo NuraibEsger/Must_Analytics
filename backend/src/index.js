@@ -644,8 +644,10 @@ app.put(
       const labelArray = Array.isArray(labels) ? labels : [labels];
 
       // Update labels if provided
+      let labelIds = [];
+
       if (labelArray?.length > 0) {
-        const labelIds = await Promise.all(
+        labelIds = await Promise.all(
           labelArray.map(async (labelId) => {
             const label = await Label.findById(labelId);
             if (!label) throw new Error(`Label with ID ${labelId} not found`);
@@ -656,6 +658,17 @@ app.put(
       }
 
       const updatedProject = await project.save();
+
+      await Promise.all(
+        updatedProject.labels.map(async (labelId) => {
+          await Label.findByIdAndUpdate(
+            labelId,
+            { $addToSet: { projects: updatedProject._id } },
+            { new: true }
+          );
+        })
+      );
+      
       res.json({
         message: "Project updated successfully",
         project: updatedProject,

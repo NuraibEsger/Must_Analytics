@@ -48,7 +48,11 @@ export const updateProject = (projectId, data, token) => {
     throw new Error("Project ID is required");
   }
 
-  return httpClient.put(`/projects/${projectId}`, data, authHeaders(token));
+  try {
+    return httpClient.put(`/projects/${projectId}`, data, authHeaders(token));
+  } catch (error) {
+    console.error("Error updating project:", error);
+  }
 };
 
 export const uploadImages = (projectId, formData, token) => {

@@ -10,11 +10,12 @@ export const useProjectForm = (toggleModal, initialData) => {
   const queryClient = useQueryClient();
   const token = useSelector((state) => state.account.token);
   const email = useSelector((state) => state.account.email);
+  
+  const projectId = initialData?.data?.id || initialData?.data?._id;
 
   const mutation = useMutation({
     mutationFn: (formData) => {
       // If editing
-      const projectId = initialData?.data?.id || initialData?.data?._id; 
       if (projectId) {
         return updateProject(projectId, formData, token);
       } 
@@ -25,6 +26,7 @@ export const useProjectForm = (toggleModal, initialData) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries(["Projects"]);
+      queryClient.invalidateQueries(["ProjectDetail", projectId]);
       toggleModal();
     },
     onError: (error) => {
