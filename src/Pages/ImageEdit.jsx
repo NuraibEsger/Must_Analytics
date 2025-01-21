@@ -16,6 +16,7 @@ import {
   Transformer,
 } from "react-konva";
 import useImage from "use-image";
+import LoadingBar from "react-top-loading-bar";
 import { useParams } from "react-router-dom";
 import {
   getImageById,
@@ -41,6 +42,7 @@ import AddLabelModal from "../components/AddLabelModal";
 import { useQuery, useMutation, useQueryClient } from "react-query";
 import { useDebouncedCallback } from "use-debounce";
 import { getLabelsByProjectId } from "../services/labelService";
+import moveIcon from '../images/move.png'
 
 // A helper component for enabling the transformer
 const TransformerComponent = ({ selectedShapeRef }) => {
@@ -97,6 +99,8 @@ export default function ImageEdit() {
   // Track which polygon point is hovered (index in polygonPoints)
   const [hoveredPointIndex, setHoveredPointIndex] = useState(null);
 
+  const [progress, setProgress] = useState(0);
+
   // Stage pan/zoom state
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -145,6 +149,8 @@ export default function ImageEdit() {
   const mutation = useMutation({
     mutationFn: (newAnnotations) => saveAnnotations(id, newAnnotations),
     onMutate: async (newAnnotations) => {
+      setProgress(30);
+
       await queryClient.cancelQueries({ queryKey: ["image", id] });
       const previousData = queryClient.getQueryData({
         queryKey: ["image", id],
@@ -181,10 +187,7 @@ export default function ImageEdit() {
       }
     },
     onSuccess: () => {
-      toast.success("Annotations saved successfully!", {
-        position: "top-right",
-        autoClose: 1000,
-      });
+      setProgress(100);
     },
   });
 
@@ -215,6 +218,9 @@ export default function ImageEdit() {
   const updateAnnotationMutation = useMutation(
     ({ annotationId, data }) => updateAnnotation(annotationId, data),
     {
+      onMutate: () => {
+        setProgress(30);
+      },
       onSuccess: (data, variables) => {
         const updatedAnnotation = data.data.annotation;
         setAnnotations((prevAnnotations) =>
@@ -222,17 +228,22 @@ export default function ImageEdit() {
             ann._id === variables.annotationId ? updatedAnnotation : ann
           )
         );
-        toast.success("Annotation updated successfully.");
+        // Complete the progress bar
+        setProgress(100);
+        // Optionally, reset after a moment
       },
       onError: (error) => {
         console.error("Error updating annotation:", error);
+        setProgress(0);
         toast.error("Failed to update annotation.");
       },
       onSettled: () => {
+        // Optionally, you can also invalidate queries here
         queryClient.invalidateQueries({ queryKey: ["image", id] });
       },
     }
   );
+  
   
 
   // Mutation for deleting an annotation (unchanged)
@@ -263,7 +274,7 @@ export default function ImageEdit() {
 
   const debouncedSave = useDebouncedCallback((newAnnotations) => {
     mutation.mutate(newAnnotations);
-  }, 500);
+  }, 200);
 
   const debouncedUpdateAnnotation = useDebouncedCallback(
     ({ annotationId, data }) => {
@@ -272,7 +283,7 @@ export default function ImageEdit() {
         data,
       });
     },
-    500 // 500ms delay (adjust as needed)
+    200 // 500ms delay (adjust as needed)
   );
 
   // Toggle Add Label modal
@@ -506,6 +517,7 @@ export default function ImageEdit() {
 
   // Load the image.
   const [konvaImage] = useImage(imageUrl, "Anonymous");
+  const [fingerIcon] = useImage(moveIcon, "Anonymous");
 
   if (isLoading || !imageDimensions || !imageUrl || !konvaImage) {
     return <Loading />;
@@ -544,6 +556,12 @@ export default function ImageEdit() {
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 5rem)" }}>
+      <LoadingBar
+        color="#4caf50" // green color
+        progress={progress}
+        height={4}
+        onLoaderFinished={() => setProgress(0)}
+      />
       {/* Sidebar for Annotations */}
       <div className="w-96 bg-white shadow-lg p-4 overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4 flex justify-between items-center">
@@ -854,7 +872,11 @@ export default function ImageEdit() {
                       width={width}
                       height={height}
                       stroke={ann.label?.color || "blue"}
-                      fill={ann.label ? `${ann.label.color}33` : "transparent"}
+                      fill={
+                        ann.label?.color
+                          ? `${ann.label.color}33`
+                          : "transparent"
+                      }
                       strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
                       dash={[4, 4]}
                       shadowColor="black"
@@ -902,6 +924,62 @@ export default function ImageEdit() {
                         });
                       }}
                     />
+                    {selectedAnnotationId === ann._id && fingerIcon && (
+                      <KonvaImage
+                        image={fingerIcon}
+                        // Calculate the center of the rectangle.
+                        x={x + width / 2 - 16} // offset by half the icon width (e.g., 16 if icon width is 32)
+                        y={y + height / 2 - 16} // offset by half the icon height
+                        width={32} // adjust size as needed
+                        height={32}
+                        // Optionally, make it draggable if you wish to move the annotation
+                        draggable
+                        onDragMove={(e) => {
+                          e.cancelBubble = true;
+                          // Update the position of the annotation based on drag of this icon.
+                          // Compute the new position so that rectangle moves.
+                          const dx = e.target.x() - (x + width / 2 - 16);
+                          const dy = e.target.y() - (y + height / 2 - 16);
+
+                          // Update annotation coordinates:
+                          const updatedAnnotation = {
+                            ...ann,
+                            x: x + dx,
+                            y: y + dy,
+                            // If your annotation uses bbox, update it accordingly.
+                            bbox: [x + dx, y + dy, width, height],
+                          };
+                          setAnnotations((prev) =>
+                            prev.map((a) =>
+                              a && a._id === ann._id ? updatedAnnotation : a
+                            )
+                          );
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          const dx = e.target.x() - (x + width / 2 - 16);
+                          const dy = e.target.y() - (y + height / 2 - 16);
+                          
+                          const updatedAnnotation = {
+                            ...ann,
+                            x: x + dx,
+                            y: y + dy,
+                            bbox: [x + dx, y + dy, width, height],
+                          };
+                          
+                          debouncedUpdateAnnotation({
+                            annotationId: ann._id,
+                            data: {
+                              // You can send x, y, or the entire bbox,
+                              // whichever your API expects.
+                              x: updatedAnnotation.x,
+                              y: updatedAnnotation.y,
+                              bbox: updatedAnnotation.bbox,
+                            },
+                          });
+                        }}
+                      />
+                    )}
                     {selectedAnnotationId === ann._id && (
                       <TransformerComponent selectedShapeRef={shapeRef} />
                     )}
@@ -943,13 +1021,24 @@ export default function ImageEdit() {
                   controlPoints.push([flatPoints[i], flatPoints[i + 1]]);
                 }
 
+                const centroid = controlPoints.reduce(
+                  (acc, pt) => [acc[0] + pt[0], acc[1] + pt[1]],
+                  [0, 0]
+                );
+                centroid[0] /= controlPoints.length;
+                centroid[1] /= controlPoints.length;
+
                 return (
                   <React.Fragment key={ann._id}>
                     <Line
                       points={flatPoints}
                       stroke={ann.label?.color || "blue"}
                       strokeWidth={selectedAnnotationId === ann._id ? 5 : 3}
-                      fill={ann.label ? `${ann.label.color}33` : "transparent"}
+                      fill={
+                        ann.label?.color
+                          ? `${ann.label.color}33`
+                          : "transparent"
+                      }
                       lineJoin="round"
                       lineCap="round"
                       closed
@@ -965,6 +1054,44 @@ export default function ImageEdit() {
                         }
                       }}
                     />
+                    {selectedAnnotationId === ann._id && fingerIcon && (
+                      <KonvaImage
+                        image={fingerIcon}
+                        x={centroid[0] - 16}
+                        y={centroid[1] - 16}
+                        width={32}
+                        height={32}
+                        draggable
+                        // Optionally handle onDrag events to reposition the entire polygon
+                        onDragMove={(e) => {
+                          e.cancelBubble = true;
+                          // Compute the shift amount
+                          const dx = e.target.x() - (centroid[0] - 16);
+                          const dy = e.target.y() - (centroid[1] - 16);
+                          // Update all coordinates by adding dx and dy
+                          const newCoords = flatPoints.map((value, index) =>
+                            index % 2 === 0 ? value + dx : value + dy
+                          );
+                          const updatedAnnotation = {
+                            ...ann,
+                            coordinates: newCoords,
+                          };
+                          setAnnotations((prev) =>
+                            prev.map((a) =>
+                              a && a._id === ann._id ? updatedAnnotation : a
+                            )
+                          );
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          
+                          debouncedUpdateAnnotation({
+                            annotationId: ann._id,
+                            data: { coordinates: ann.coordinates }, // use updated coordinates
+                          });
+                        }}
+                      />
+                    )}
                     {selectedAnnotationId === ann._id &&
                       controlPoints.map((pt, index) => (
                         <Circle
