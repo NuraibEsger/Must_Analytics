@@ -359,7 +359,7 @@ export default function ProjectDetail() {
               >
                 {/* Conditional Container Styling */}
                 <div
-                  className={`relative w-full ${
+                  className={`relative w-full flex items-center ${
                     selectedColumns === 1 ? "aspect-auto" : "aspect-square"
                   }`}
                 >
@@ -367,7 +367,7 @@ export default function ProjectDetail() {
                     <img
                       src={`${backendUrl}/${image.filePath}`}
                       alt={image.fileName}
-                      className="w-full h-full object-cover object-center"
+                      className="object-cover object-center"
                     />
                   </Link>
 
