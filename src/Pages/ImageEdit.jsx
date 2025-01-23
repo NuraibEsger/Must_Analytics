@@ -63,6 +63,8 @@ const Loading = () => (
   </div>
 );
 
+const ZOOM_FACTOR = 0.8;
+
 export default function ImageEdit() {
   const { id } = useParams();
   const queryClient = useQueryClient();
@@ -108,6 +110,8 @@ export default function ImageEdit() {
   const [stageScale, setStageScale] = useState(1);
   const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
 
+  const [isStageInitialized, setIsStageInitialized] = useState(false);
+
   // Fetch image and related data
   const { isLoading, isError, error } = useQuery({
     queryKey: ["image", id],
@@ -119,6 +123,23 @@ export default function ImageEdit() {
         img.onload = () => {
           setImageDimensions({ width: img.width, height: img.height });
           setImageUrl(`${backendUrl}/${data.image.filePath}`);
+  
+          // Calculate initial scale with zoom factor
+          const initialScale = Math.min(
+            (window.innerWidth - 300) / img.width, // 300px sidebar
+            window.innerHeight / img.height
+          ) * ZOOM_FACTOR;
+  
+          // Calculate image position to center it
+          const imageX = ((window.innerWidth - 300) - img.width * initialScale) / 2;
+          const imageY = (window.innerHeight - img.height * initialScale) / 2;
+  
+          // Set initial scale and position only if not already set
+          if (!isStageInitialized) {
+            setStageScale(initialScale);
+            setStagePosition({ x: imageX, y: imageY });
+            setIsStageInitialized(true);
+          }
         };
         img.onerror = (err) => {
           console.error("Error loading image dimensions:", err);
@@ -147,6 +168,7 @@ export default function ImageEdit() {
     () => getLabelsByProjectId(projectId),
     { enabled: !!projectId }
   );
+  
 
   // Mutation for saving annotations (for new ones)
   const mutation = useMutation({
@@ -518,8 +540,10 @@ export default function ImageEdit() {
     const stage = e.target.getStage();
     const oldScale = stageScale;
     const pointer = stage.getPointerPosition();
+
     const newScale = e.evt.deltaY > 0 ? oldScale / scaleBy : oldScale * scaleBy;
     setStageScale(newScale);
+    
     const mousePointTo = {
       x: (pointer.x - stagePosition.x) / oldScale,
       y: (pointer.y - stagePosition.y) / oldScale,
