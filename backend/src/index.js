@@ -746,6 +746,27 @@ app.post("/labels", verifyToken, async (req, res) => {
   }
 });
 
+app.put("/labels/:id", verifyToken, async (req, res) => {
+  const { id } = req.params;
+  const { name, color } = req.body;
+
+  try {
+    const updatedLabel = await Label.findByIdAndUpdate(
+      id,
+      { name, color },
+      { new: true }
+    );
+
+    if (!updatedLabel) {
+      return res.status(404).json({ message: "Label not found" });
+    }
+
+    res.json(updatedLabel);
+  } catch (error) {
+    console.error("Error creating label:", error);
+    res.status(500).json({ message: "Error creating label", error });
+  }
+});
 // Express Router
 
 app.post("/projects/:projectId/labels", verifyToken, async (req, res) => {

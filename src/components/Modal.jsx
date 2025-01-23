@@ -5,14 +5,22 @@ import { useQuery } from "react-query";
 import { getLabels } from "../services/labelService";
 import Select from "react-select";
 import { useSelector } from "react-redux";
+import { FiEdit, FiPlus, FiUploadCloud } from "react-icons/fi";
+import EditLabelsModal from "./EditLabelsModal";
 
 export default function Modal({ isOpen, toggleModal, initialData }) {
   const { formik, handleFileChange, isSubmitting } = useProjectForm(toggleModal, initialData);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isEditLabelsModalOpen, setEditLabelsModalOpen] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const token = useSelector((state) => state.account.token);
 
   const toggleLabelModal = () => {
     setModalOpen(!isModalOpen);
+  };
+
+  const toggleEditLabelsModal = () => {
+    setEditLabelsModalOpen(!isEditLabelsModalOpen);
   };
 
 
@@ -85,6 +93,12 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     </div>
   );
 
+  const handleCustomFileChange = (e) => {
+    const files = e.target.files;
+    setSelectedFiles(Array.from(files)); // store file objects for display
+    handleFileChange(e); // call original handler from useProjectForm
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-lg">
@@ -106,7 +120,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               onChange={formik.handleChange}
             />
             {formik.errors.name && formik.touched.name && (
-              <span style={{ color: "red" }}>{formik.errors.name}</span>
+              <span className="text-red-500">{formik.errors.name}</span>
             )}
           </div>
 
@@ -122,7 +136,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               onChange={formik.handleChange}
             ></textarea>
             {formik.errors.description && formik.touched.description && (
-              <span style={{ color: "red" }}>{formik.errors.description}</span>
+              <span className="text-red-500">{formik.errors.description}</span>
             )}
           </div>
 
@@ -150,36 +164,61 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
                 placeholder="Add labels"
               />
               {formik.errors.labels && formik.touched.labels && (
-                <span style={{ color: "red" }}>{formik.errors.labels}</span>
+                <span className="text-red-500">{formik.errors.labels}</span>
               )}
             </div>
             <button
               type="button"
-              className="v-btn v-btn--icon v-btn--round ml-4 p-3 rounded-full text-white"
-              style={{
-                backgroundColor: "rgb(126 34 206 / var(--tw-bg-opacity))",
-              }}
+              className="ml-4 p-3 rounded-full text-white"
+              style={{ backgroundColor: "rgb(126 34 206)" }}
               onClick={toggleLabelModal}
             >
-              +
+              <FiPlus />
+            </button>
+          </div>
+          
+          {/* Button to open Edit Labels Modal */}
+          <div className="mt-6 flex justify-center">
+            <button
+              type="button"
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+              onClick={toggleEditLabelsModal}
+              aria-label="Edit Labels"
+            >
+              <FiEdit className="w-5 h-5" />
+              <span className="font-medium">Edit Labels</span>
             </button>
           </div>
 
-          
-
+          {/* Custom File Input Section */}
           <div className="mb-4">
             <label className="block text-gray-700 font-bold mb-2">
               Upload Files
             </label>
-            <input
-              name="files"
-              type="file"
-              multiple
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              onChange={handleFileChange}
-            />
+            <div className="relative">
+              {/* Hidden file input */}
+              <input
+                id="file-input"
+                name="files"
+                type="file"
+                multiple
+                onChange={handleCustomFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
+              />
+              <div className="border h-32 border-gray-300 rounded-md px-4 py-2 flex items-center justify-center cursor-pointer">
+                <div className="flex items-center">
+                  {/* FiCloudDownload Icon (make it larger using Tailwind’s text-4xl, for example) */}
+                  <FiUploadCloud className="text-purple-700 mr-3 text-4xl" />
+                  <span className="text-gray-600">
+                    {selectedFiles.length > 0
+                      ? selectedFiles.map((file) => file.name).join(", ")
+                      : "Choose files..."}
+                  </span>
+                </div>
+              </div>
+            </div>
             {formik.errors.files && formik.touched.files && (
-              <span style={{ color: "red" }}>{formik.errors.files}</span>
+              <span className="text-red-500">{formik.errors.files}</span>
             )}
           </div>
 
@@ -200,11 +239,18 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             </button>
           </div>
         </form>
+
         <AddLabelModal
-            isOpen={isModalOpen}
-            onClose={() => setModalOpen(false)}
-            toggleLabelModal={toggleLabelModal}
-          />
+          isOpen={isModalOpen}
+          onClose={() => setModalOpen(false)}
+          toggleLabelModal={toggleLabelModal}
+        />
+
+        {/* Edit Labels Modal */}
+        <EditLabelsModal
+          isOpen={isEditLabelsModalOpen}
+          onClose={toggleEditLabelsModal}
+        />
       </div>
     </div>
   );

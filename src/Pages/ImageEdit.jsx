@@ -83,6 +83,9 @@ export default function ImageEdit() {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false);
 
+  // Hovered State
+  const [hoveredAnnotationId, setHoveredAnnotationId] = useState(null);
+
   // Image properties
   const [imageDimensions, setImageDimensions] = useState(null);
   const [imageUrl, setImageUrl] = useState(null);
@@ -250,11 +253,14 @@ export default function ImageEdit() {
   const deleteAnnotationMutation = useMutation(
     (annotationId) => deleteAnnotation(annotationId),
     {
+      onMutate: () => {
+        setProgress(30);
+      },
       onSuccess: (_, annotationId) => {
         setAnnotations((prevAnnotations) =>
           prevAnnotations.filter((ann) => ann._id !== annotationId)
         );
-        toast.success("Annotation removed successfully.");
+        setProgress(100);
       },
       onError: (error) => {
         console.error("Error deleting annotation:", error);
@@ -325,16 +331,20 @@ export default function ImageEdit() {
       (acc, curr) => acc.concat(curr),
       []
     );
-    // Close the polygon by appending the first point.
     const closedPoints = [
       ...flattenedPoints,
       polygonPoints[0][0],
       polygonPoints[0][1],
     ];
+    
+    // Get the first label from labelsData if available
+    const initialLabel =
+      (labelsData && Array.isArray(labelsData) ? labelsData[0] : null) || null;
+      
     const annotationWithId = {
       type: "polygon",
       coordinates: closedPoints,
-      label: null,
+      label: initialLabel,
     };
     setAnnotations((prev) => [...prev, annotationWithId]);
     debouncedSave([annotationWithId]);
@@ -344,7 +354,7 @@ export default function ImageEdit() {
     setIsPolygonFinished(false);
     setDrawingMode("");
     setHoveredPointIndex(null);
-  }, [polygonPoints, debouncedSave]);
+  }, [polygonPoints, debouncedSave, labelsData]);
 
   // ----------------------------
   // KEYBOARD HANDLERS
@@ -473,6 +483,8 @@ export default function ImageEdit() {
 
   const handleMouseUp = () => {
     if (!isEditor) return;
+
+    const initialLabel = (labelsData && Array.isArray(labelsData) && labelsData[0]) || null;
     if (newAnnotation && newAnnotation.type === "rectangle") {
       const annotationWithId = {
         type: "rectangle",
@@ -480,7 +492,7 @@ export default function ImageEdit() {
         y: newAnnotation.y,
         width: newAnnotation.width,
         height: newAnnotation.height,
-        label: null,
+        label: initialLabel,
       };
       setAnnotations((prev) => [...prev, annotationWithId]);
       debouncedSave([annotationWithId]);
@@ -873,11 +885,17 @@ export default function ImageEdit() {
                       height={height}
                       stroke={ann.label?.color || "blue"}
                       fill={
-                        ann.label?.color
-                          ? `${ann.label.color}33`
+                        ann?.label?.color
+                          ? `${ann?.label?.color}33`
                           : "transparent"
                       }
-                      strokeWidth={selectedAnnotationId === ann._id ? 4 : 2}
+                      strokeWidth={
+                        hoveredAnnotationId === ann._id
+                          ? 6
+                          : selectedAnnotationId === ann._id
+                          ? 4
+                          : 2
+                      }
                       dash={[4, 4]}
                       shadowColor="black"
                       shadowBlur={10}
@@ -889,6 +907,8 @@ export default function ImageEdit() {
                           setEditingAnnotationId(ann._id);
                         }
                       }}
+                      onMouseEnter={() => setHoveredAnnotationId(ann._id)}
+                      onMouseLeave={() => setHoveredAnnotationId(null)}
                       onTransformEnd={(e) => {
                         const node = shapeRef.current;
                         if (!node) return;
@@ -959,14 +979,14 @@ export default function ImageEdit() {
                           e.cancelBubble = true;
                           const dx = e.target.x() - (x + width / 2 - 16);
                           const dy = e.target.y() - (y + height / 2 - 16);
-                          
+
                           const updatedAnnotation = {
                             ...ann,
                             x: x + dx,
                             y: y + dy,
                             bbox: [x + dx, y + dy, width, height],
                           };
-                          
+
                           debouncedUpdateAnnotation({
                             annotationId: ann._id,
                             data: {
@@ -1033,7 +1053,13 @@ export default function ImageEdit() {
                     <Line
                       points={flatPoints}
                       stroke={ann.label?.color || "blue"}
-                      strokeWidth={selectedAnnotationId === ann._id ? 5 : 3}
+                      strokeWidth={
+                        hoveredAnnotationId === ann._id
+                          ? 6
+                          : selectedAnnotationId === ann._id
+                          ? 5
+                          : 3
+                      }
                       fill={
                         ann.label?.color
                           ? `${ann.label.color}33`
@@ -1053,6 +1079,8 @@ export default function ImageEdit() {
                           setEditingAnnotationId(ann._id);
                         }
                       }}
+                      onMouseEnter={() => setHoveredAnnotationId(ann._id)}
+                      onMouseLeave={() => setHoveredAnnotationId(null)}
                     />
                     {selectedAnnotationId === ann._id && fingerIcon && (
                       <KonvaImage
@@ -1084,7 +1112,7 @@ export default function ImageEdit() {
                         }}
                         onDragEnd={(e) => {
                           e.cancelBubble = true;
-                          
+
                           debouncedUpdateAnnotation({
                             annotationId: ann._id,
                             data: { coordinates: ann.coordinates }, // use updated coordinates
