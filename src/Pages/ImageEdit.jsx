@@ -225,11 +225,19 @@ export default function ImageEdit() {
         setProgress(30);
       },
       onSuccess: (data, variables) => {
-        const updatedAnnotation = data.data.annotation;
+        const updatedData = data.data.annotation;
+        
         setAnnotations((prevAnnotations) =>
-          prevAnnotations.map((ann) =>
-            ann._id === variables.annotationId ? updatedAnnotation : ann
-          )
+          prevAnnotations.map((ann) => {
+            if (ann._id === variables.annotationId) {
+              return {
+                ...ann,
+                ...updatedData, // Merge updated fields
+                label: ann.label, // Preserve existing label
+              };
+            }
+            return ann;
+          })
         );
         // Complete the progress bar
         setProgress(100);
