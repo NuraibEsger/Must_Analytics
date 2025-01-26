@@ -1,8 +1,8 @@
 // src/Pages/ProjectDetail.jsx
 
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQuery, useInfiniteQuery, useQueryClient } from "react-query"; // Import the new hooks
+import { useQuery, useInfiniteQuery, useQueryClient } from "react-query";
 import { useSelector } from "react-redux";
 import {
   getProjectsById,
@@ -10,36 +10,36 @@ import {
   deleteProject,
   exportProject,
   getProjectImages,
-  getProjectStatistics, // Import the new service function
+  getProjectStatistics,
+  deleteImage, // Ensure deleteImage is imported
 } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
-import { FiUpload, FiEdit, FiDownload, FiTrash, FiPlus } from "react-icons/fi";
+import { FiUpload, FiEdit, FiDownload, FiTrash, FiPlus, FiEye, FiTrash2 } from "react-icons/fi";
 import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 
-import { Pie } from "react-chartjs-2";
-import { Chart, ArcElement, Tooltip, Legend } from "chart.js";
+import { Pie, Bar} from "react-chartjs-2";
+import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js";
 import InviteModal from "../components/InviteModal";
 
-Chart.register(ArcElement, Tooltip, Legend);
+Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
 
 export default function ProjectDetail() {
   const params = useParams();
   const navigate = useNavigate();
-  const queryClient = useQueryClient(); // Initialize queryClient
+  const queryClient = useQueryClient();
   const [selectedColumns, setSelectedColumns] = useState(4);
   const [isUploading, setIsUploading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [initialData, setInitialData] = useState(null);
-  const [activeMenu, setActiveMenu] = useState("Filter"); // New state for menu
+  const [activeMenu, setActiveMenu] = useState("Filter");
 
   const token = useSelector((state) => state.account.token);
-  const currentUserEmail = useSelector((state) => state.account.email);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
-  // Fetch project details (name, description, labels)
+  // Fetch project details
   const {
     data: projectData,
     isLoading: projectLoading,
@@ -47,9 +47,9 @@ export default function ProjectDetail() {
     error: projectErrorData,
   } = useQuery({
     queryKey: ["ProjectDetail", params.id],
-    queryFn: async () => await getProjectsById(params.id, token),
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 10, // 10 minutes
+    queryFn: () => getProjectsById(params.id, token),
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 10,
     onError: (error) => {
       console.error("Error fetching project details:", error);
       toast.error("Failed to load project details.", {
@@ -59,11 +59,7 @@ export default function ProjectDetail() {
     },
   });
 
-  const members = projectData?.data?.data?.members || [];
-
-  const isEditor = members.some(
-    (m) => m.email === currentUserEmail && m.role === "editor"
-  );
+  const project = projectData;
 
   // Extract Project ID from projectData
   const projectId = params.id || null;
@@ -80,11 +76,11 @@ export default function ProjectDetail() {
   } = useInfiniteQuery({
     queryKey: ["ProjectImages", params.id],
     queryFn: ({ pageParam = 0 }) =>
-    getProjectImages(params.id, token, pageParam, 50),
+      getProjectImages(params.id, token, pageParam, 50),
     getNextPageParam: (lastPage) =>
       lastPage.hasNextPage ? lastPage.nextSkip : undefined,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 10,
     onError: (error) => {
       console.error("Error fetching project images:", error);
       toast.error("Failed to load project images.", {
@@ -94,7 +90,9 @@ export default function ProjectDetail() {
     },
   });
 
-  // Fetch Project Statistics using the new object-based useQuery
+  console.log(imagesData)
+
+  // Fetch Project Statistics
   const {
     data: statisticsData,
     isLoading: statisticsLoading,
@@ -104,8 +102,8 @@ export default function ProjectDetail() {
     queryKey: ["ProjectStatistics", projectId],
     queryFn: () => getProjectStatistics(projectId, token),
     enabled: !!projectId && !!token,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    cacheTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 5,
+    cacheTime: 1000 * 60 * 10,
     onError: (error) => {
       console.error("Error fetching project statistics:", error);
       toast.error("Failed to load project statistics.", {
@@ -115,6 +113,7 @@ export default function ProjectDetail() {
     },
   });
 
+  // Handle Export
   const handleExport = async () => {
     try {
       await exportProject(params.id, token);
@@ -128,6 +127,7 @@ export default function ProjectDetail() {
     }
   };
 
+  // Handle File Upload
   const handleFileUpload = async (event) => {
     const files = event.target.files;
     if (!files.length) {
@@ -155,13 +155,15 @@ export default function ProjectDetail() {
     }
   };
 
+  // Handle Edit
   const handleEdit = () => {
-    if (projectData) {
-      setInitialData(projectData.data);
+    if (project) {
+      setInitialData(project);
       setIsModalOpen(true);
     }
   };
 
+  // Handle Remove Project
   const handleRemove = async () => {
     if (window.confirm("Are you sure you want to delete this project?")) {
       try {
@@ -172,6 +174,23 @@ export default function ProjectDetail() {
         console.error("Remove failed:", error);
         toast.error("Failed to remove project. Please try again.");
       }
+    }
+  };
+
+  // Handle Delete Image
+  const handleDeleteImage = async (imageId) => {
+    if (!window.confirm("Are you sure you want to delete this image?")) {
+      return;
+    }
+    try {
+      await deleteImage(projectId, imageId, token);
+      toast.success("Image deleted successfully!");
+      // Invalidate and refetch the images query to reflect the deletion
+      queryClient.invalidateQueries(["ProjectImages", projectId]);
+      queryClient.invalidateQueries(["ProjectStatistics", projectId]); // Update statistics if needed
+    } catch (error) {
+      console.error("Failed to delete image:", error);
+      toast.error("Failed to delete image. Please try again.");
     }
   };
 
@@ -191,8 +210,36 @@ export default function ProjectDetail() {
     [imagesLoading, isFetchingNextPage, hasNextPage, fetchNextPage]
   );
 
+  // Flatten images from all pages, maintaining the order (newest first)
+  const allImages = imagesData?.pages?.flatMap((page) => page.images) || [];
+
+  // Compute label usage counts
+  const labelUsageCounts = useMemo(() => {
+    const counts = {};
+
+    // Initialize counts with label names
+    project?.data?.labels?.forEach((label) => {
+      counts[label._id] = { name: label.name, color: label.color, count: 0 };
+    });
+
+    // Iterate through all images and their annotations to tally counts
+    allImages.forEach((image) => {
+      console.log(image.annotations);
+      image.annotations.forEach((annotation) => {
+        if (annotation.label) { // Ensure label is populated
+          const labelId = annotation.label._id || annotation.label; // Depending on how it's populated
+          if (counts[labelId]) {
+            counts[labelId].count += 1;
+          }
+        }
+      });
+    });
+
+    return counts;
+  }, [allImages, project?.labels]);
+
   // Prepare data for the Pie Chart
-  const pieData = {
+  const pieData = useMemo(() => ({
     labels: ["Labeled Images", "Unlabeled Images"],
     datasets: [
       {
@@ -212,7 +259,7 @@ export default function ProjectDetail() {
         borderWidth: 1,
       },
     ],
-  };
+  }), [statisticsData]);
 
   // Configuration options for the Pie Chart
   const pieOptions = {
@@ -238,6 +285,44 @@ export default function ProjectDetail() {
     },
   };
 
+  // Optional: Prepare data for the Bar Chart
+  const barData = useMemo(() => {
+    const labels = Object.values(labelUsageCounts).map((label) => label.name);
+    const data = Object.values(labelUsageCounts).map((label) => label.count);
+    const backgroundColors = Object.values(labelUsageCounts).map((label) => label.color);
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: "Label Usage",
+          data,
+          backgroundColor: backgroundColors,
+        },
+      ],
+    };
+  }, [labelUsageCounts]);
+
+  const barOptions = {
+    responsive: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        enabled: true,
+      },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: {
+          precision: 0,
+        },
+      },
+    },
+  };
+
   if (projectLoading) {
     return (
       <div className="flex justify-center items-center h-full w-full py-10">
@@ -257,7 +342,7 @@ export default function ProjectDetail() {
     );
   }
 
-  if (!projectData || !projectData.data) {
+  if (!project) {
     return (
       <div className="py-10">
         <ErrorBlock
@@ -268,11 +353,7 @@ export default function ProjectDetail() {
     );
   }
 
-  const project = projectData.data;
-
-  // Flatten images from all pages, maintaining the order (newest first)
-  const allImages = imagesData?.pages?.flatMap((page) => page.images) || [];
-
+  
   return (
     <div className="flex gap-4 container mx-auto p-4">
       {/* Main Content */}
@@ -280,17 +361,15 @@ export default function ProjectDetail() {
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
           <div className="flex gap-3">
-            {isEditor && (
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={() => setIsInviteModalOpen(true)}
-              >
-                <FiPlus />
-                Invite
-              </button>
-            )}
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              onClick={() => setIsInviteModalOpen(true)}
+            >
+              <FiPlus />
+              Invite
+            </button>
 
-            {isInviteModalOpen && isEditor && (
+            {isInviteModalOpen && (
               <InviteModal
                 projectId={projectId}
                 onClose={() => setIsInviteModalOpen(false)}
@@ -304,38 +383,32 @@ export default function ProjectDetail() {
               <FiDownload />
               Export
             </button>
-            {isEditor && (
-              <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
-                <FiUpload />
-                {isUploading ? "Uploading..." : "Upload Data"}
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            )}
-            {isEditor && (
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={handleEdit}
-                aria-label="Edit Project"
-              >
-                <FiEdit />
-                Edit Project
-              </button>
-            )}
-            {isEditor && (
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={handleRemove}
-                aria-label="Remove Project"
-              >
-                <FiTrash />
-                Remove
-              </button>
-            )}
+            <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
+              <FiUpload />
+              {isUploading ? "Uploading..." : "Upload Data"}
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              onClick={handleEdit}
+              aria-label="Edit Project"
+            >
+              <FiEdit />
+              Edit Project
+            </button>
+            <button
+              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+              onClick={handleRemove}
+              aria-label="Remove Project"
+            >
+              <FiTrash />
+              Remove
+            </button>
           </div>
         </div>
         <p className="text-gray-600">{project.description}</p>
@@ -354,7 +427,7 @@ export default function ProjectDetail() {
             return (
               <div
                 key={image._id}
-                className="bg-gray-100 rounded-lg shadow overflow-hidden relative"
+                className="bg-gray-100 rounded-lg shadow overflow-hidden relative group"
                 ref={isLast ? lastImageRef : null}
               >
                 {/* Conditional Container Styling */}
@@ -367,13 +440,13 @@ export default function ProjectDetail() {
                     <img
                       src={`${backendUrl}/${image.filePath}`}
                       alt={image.fileName}
-                      className="object-cover object-center"
+                      className="object-cover object-center w-full h-full"
                     />
                   </Link>
 
                   {/* Overlay if Image is Labeled */}
                   {isLabeled && (
-                    <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full group">
+                    <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full flex items-center">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
@@ -383,12 +456,32 @@ export default function ProjectDetail() {
                       >
                         <path d="M19,6H22V8H19V11H17V8H14V6H17V3H19V6M17,17V14H19V19H3V6H11V8H5V17H17Z"></path>
                       </svg>
-                      {/* Tooltip with Animation */}
-                      <span className="absolute bottom-full right-1 mb-1 px-2 py-1 bg-[#2196f3] text-white text-xs rounded opacity-0 group-hover:opacity-100 transform translate-y-1 transition-opacity duration-200">
+                      {/* Always Visible Tooltip */}
+                      <span className="ml-1 px-2 py-0.5 bg-[#2196f3] text-white text-xs rounded">
                         Labeled
                       </span>
                     </div>
                   )}
+                </div>
+
+                {/* Hover Buttons */}
+                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition duration-300 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100">
+                  <button
+                    className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                    onClick={() => handleDeleteImage(image._id)}
+                    aria-label="Delete Image"
+                  >
+                    <FiTrash2 />
+                    Delete
+                  </button>
+                  <Link
+                    to={`/edit-image/${image._id}`}
+                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                    aria-label="See Image"
+                  >
+                    <FiEye />
+                    See
+                  </Link>
                 </div>
               </div>
             );
@@ -493,8 +586,29 @@ export default function ProjectDetail() {
                     Total Images: {statisticsData.totalImages}
                   </div>
                   {/* Pie Chart */}
-                  <div className="w-48 h-48">
+                  <div className="w-48 h-48 mb-6">
                     <Pie data={pieData} options={pieOptions} />
+                  </div>
+                  {/* Bar Chart for Label Usage (Optional) */}
+                  <div className="w-full h-32 mb-6">
+                    <Bar data={barData} options={barOptions} />
+                  </div>
+                  {/* Label Usage Counts */}
+                  <div className="w-full">
+                    <h4 className="text-md font-semibold mb-2">Label Usage</h4>
+                    <ul>
+                      {Object.values(labelUsageCounts).map((label) => (
+                        <li key={label._id} className="flex items-center mb-1">
+                          <span
+                            className="w-3 h-3 rounded-full mr-2"
+                            style={{ backgroundColor: label.color }}
+                          ></span>
+                          <span className="text-gray-700">
+                            {label.name} - {label.count}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               ) : (

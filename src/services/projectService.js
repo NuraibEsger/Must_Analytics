@@ -18,8 +18,14 @@ export const postProject = (data, token) => {
 };
 
 // Get a project by ID
-export const getProjectsById = (projectId, token) => {
-  return httpClient.get(`/project/${projectId}`, authHeaders(token));
+export const getProjectsById = async (projectId, token) => {
+  try {
+    const response = await httpClient.get(`/project/${projectId}`, authHeaders(token));
+    return response.data; // Return the actual project data directly
+  } catch (error) {
+    console.error("Error fetching project by ID:", error);
+    throw error;
+  }
 };
 
 // Fetch images with pagination
@@ -40,6 +46,17 @@ export const getProjectImages = (projectId, token, skip = 0, limit = 50) => {
 export const deleteProject = (projectId, token) => {
   return httpClient.delete(`/projects/${projectId}`, authHeaders(token));
 };
+
+export const deleteImage = async (projectId, imageId, token) => {
+  try {
+    const response = await httpClient.delete(`/project/${projectId}/image/${imageId}`, authHeaders(token));
+
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting image:", error);
+    throw error;
+  }
+}
 
 // Update an existing project by ID
 export const updateProject = (projectId, data, token) => {

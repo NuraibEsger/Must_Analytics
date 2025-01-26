@@ -112,6 +112,8 @@ export default function ImageEdit() {
 
   const [isStageInitialized, setIsStageInitialized] = useState(false);
 
+  const [lastSelectedLabelId, setLastSelectedLabelId] = useState(null);
+
   // Fetch image and related data
   const { isLoading, isError, error } = useQuery({
     queryKey: ["image", id],
@@ -221,13 +223,16 @@ export default function ImageEdit() {
     ({ annotationId, labelId }) => updateAnnotationLabel(annotationId, labelId),
     {
       onSuccess: (data, variables) => {
+        setProgress(30);
+
         const updatedAnnotation = data.annotation;
         setAnnotations((prevAnnotations) =>
           prevAnnotations.map((ann) =>
             ann._id === variables.annotationId ? updatedAnnotation : ann
           )
         );
-        toast.success("Annotation label updated.");
+        
+        setProgress(100);
       },
       onError: (error) => {
         console.error("Error updating label:", error);
@@ -235,6 +240,7 @@ export default function ImageEdit() {
       },
       onSettled: () => {
         queryClient.invalidateQueries(["image", id]);
+        queryClient.invalidateQueries(["ProjectImages", projectId]);
       },
     }
   );
@@ -331,6 +337,7 @@ export default function ImageEdit() {
   const handleLabelChange = (annotationId, labelId) => {
     if (!isEditor) return;
     updateLabelMutation.mutate({ annotationId, labelId });
+    setLastSelectedLabelId(labelId);
   };
 
   // Remove an annotation
@@ -368,8 +375,14 @@ export default function ImageEdit() {
     ];
     
     // Get the first label from labelsData if available
-    const initialLabel =
-      (labelsData && Array.isArray(labelsData) ? labelsData[0] : null) || null;
+    let initialLabel = null;
+    if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
+      initialLabel =
+        labelsData.find((label) => label._id === lastSelectedLabelId) || null;
+    }
+    if (!initialLabel && labelsData && Array.isArray(labelsData)) {
+      initialLabel = labelsData[0] || null;
+    }
       
     const annotationWithId = {
       type: "polygon",
@@ -384,7 +397,7 @@ export default function ImageEdit() {
     setIsPolygonFinished(false);
     setDrawingMode("");
     setHoveredPointIndex(null);
-  }, [polygonPoints, debouncedSave, labelsData]);
+  }, [polygonPoints, debouncedSave, labelsData, lastSelectedLabelId]);
 
   // ----------------------------
   // KEYBOARD HANDLERS
@@ -514,7 +527,14 @@ export default function ImageEdit() {
   const handleMouseUp = () => {
     if (!isEditor) return;
 
-    const initialLabel = (labelsData && Array.isArray(labelsData) && labelsData[0]) || null;
+    let initialLabel = null;
+    if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
+      initialLabel =
+        labelsData.find((label) => label._id === lastSelectedLabelId) || null;
+    }
+    if (!initialLabel && labelsData && Array.isArray(labelsData)) {
+      initialLabel = labelsData[0] || null;
+    }
     if (newAnnotation && newAnnotation.type === "rectangle") {
       const annotationWithId = {
         type: "rectangle",

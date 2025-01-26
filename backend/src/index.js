@@ -10,6 +10,7 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
+const { model } = require("mongoose");
 require("dotenv").config();
 const frontUrl = process.env.FRONT_END_URL;
 
@@ -308,6 +309,13 @@ app.get("/project/:id", verifyToken, async (req, res) => {
     // Fetch project details excluding images
     const project = await Project.findById(projectId)
       .select("name description labels members") // Select necessary fields
+      .populate({
+        path: "images",
+        populate: { 
+          path: "annotations", 
+          populate: { path: "label" } // Populate label within annotations
+        }
+      })
       .populate("labels"); // Populate labels if necessary
 
     if (!project) {
@@ -396,6 +404,10 @@ app.get("/project/:id/images", verifyToken, async (req, res) => {
       .sort({ createdAt: -1 }) // Sort newest first
       .skip(skip)
       .limit(limit)
+      .populate({
+        path: "annotations",
+        populate: { path: "label", model: "Label" },
+      })
       .exec();
 
     // Calculate if there is a next page
@@ -607,6 +619,45 @@ app.delete("/projects/:id", verifyToken, async (req, res) => {
   } catch (error) {
     console.error("Error deleting project:", error);
     res.status(500).json({ message: "Error deleting project", error });
+  }
+});
+
+app.delete("/project/:projectId/image/:imageId", verifyToken, async (req, res) => {
+  const { projectId, imageId } = req.params;
+  try {
+    const project = await Project.findById(projectId);
+    if (!project) {
+      return res.status(404).json({ message: "Project not found" });
+    }
+
+    // Remove the image from the project's images array
+    const updatedProject = await Project.findByIdAndUpdate(
+      projectId,
+      { $pull: { images: imageId } },
+      { new: true }
+    );
+
+    // Delete the image from the Image collection
+    const image = await Image.findById(imageId);
+    if (!image) {
+      return res.status(404).json({ message: "Image not found." });
+    }
+
+    if (!project.images.includes(image._id)) {
+      return res.status(400).json({ message: "Image does not belong to the specified project." });
+    }
+
+    await Annotation.deleteMany({ image: image._id });
+
+    project.images.pull(image._id);
+    await project.save();
+
+    await Image.findByIdAndDelete(image._id);
+
+    res.json({ message: "Image deleted successfully", project: updatedProject });
+  } catch (error) {
+    console.error("Error deleting image:", error);
+    res.status(500).json({ message: "Error deleting image", error });
   }
 });
 
