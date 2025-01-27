@@ -1021,6 +1021,11 @@ app.post("/login", async (req, res) => {
 app.post("/signUp", async (req, res) => {
   const { email, password, confirmPassword } = req.body;
 
+  // Check if the email is existing
+  if (await User.findOne({ email })) {
+    return res.status(400).json({ message: "User already exists" });
+  }
+
   // Check if the passwords match
   if (password !== confirmPassword) {
     return res.status(400).json({ message: "Passwords do not match" });
@@ -1089,8 +1094,14 @@ app.post("/project/:projectId/invite", async (req, res) => {
       from: `"Project Invites" nurayib.esger@gmail.com`,
       to: email,
       subject: `Invitation to join ${project.name}`,
-      text: `Hello! You have been invited to join project "${project.name}" as a ${role}.
+      text: `Hello! You have been invited to join the project "${project.name}" as a ${role}. 
              Click this link to accept: ${inviteLink}`,
+      html: `
+        <p>Hello!</p>
+        <p>You have been invited to join the project <strong>${project.name}</strong> as a <strong>${role}</strong>.</p>
+        <p>Click the link below to accept the invitation:</p>
+        <a href="${inviteLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
+      `,
     });
 
     return res.status(200).json({ message: "Invite sent successfully." });

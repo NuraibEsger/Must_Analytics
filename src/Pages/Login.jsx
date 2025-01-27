@@ -1,3 +1,4 @@
+// Login.js
 import React from "react";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -6,6 +7,7 @@ import { useMutation } from "react-query";
 import { useDispatch } from "react-redux";
 import { login } from "../services/authService";
 import { loginAction } from "../redux/slices/accountSlice";
+import { toast } from "react-toastify";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -15,11 +17,16 @@ export default function Login() {
     mutationFn: login,
     onSuccess: (data) => {
       dispatch(loginAction({ token: data.token, email: data.email }));
+      toast.success("Logged in successfully!");
       navigate("/");
     },
     onError: (error) => {
-      console.error("Login failed: ", error);
-      alert("Login failed. Please check your credentials.");
+      let errorMessage = "Login failed. Please check your credentials.";
+      if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error(errorMessage);
     },
   });
 
@@ -79,8 +86,9 @@ export default function Login() {
           <button
             type="submit"
             className="w-full py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            disabled={mutation.isLoading} // Disable button while loading
           >
-            Sign In
+            {mutation.isLoading ? "Signing In..." : "Sign In"}
           </button>
         </form>
         <div className="text-center mt-6">

@@ -23,6 +23,7 @@ export const useLabelForm = (toggleLabelModal, projectId = null) => {
       if (projectId) {
         queryClient.invalidateQueries(["labels", projectId]);
         queryClient.invalidateQueries(["imageDetails", projectId]);
+        queryClient.invalidateQueries(["projectDetail", projectId]);
       } else {
         queryClient.invalidateQueries(["labels"]);
       }

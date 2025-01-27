@@ -1,5 +1,4 @@
 // src/Pages/ProjectDetail.jsx
-
 import React, { useState, useRef, useCallback, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useInfiniteQuery, useQueryClient } from "react-query";
@@ -11,19 +10,45 @@ import {
   exportProject,
   getProjectImages,
   getProjectStatistics,
-  deleteImage, // Ensure deleteImage is imported
+  deleteImage,
 } from "../services/projectService";
 import ErrorBlock from "../components/ErrorBlock";
 import Modal from "../components/Modal";
-import { FiUpload, FiEdit, FiDownload, FiTrash, FiPlus, FiEye, FiTrash2 } from "react-icons/fi";
+import ConfirmationModal from "../components/ConfirmationModal"; // Import the ConfirmationModal
+import {
+  FiUpload,
+  FiEdit,
+  FiDownload,
+  FiTrash,
+  FiPlus,
+  FiEye,
+  FiTrash2,
+} from "react-icons/fi";
 import { ClipLoader } from "react-spinners";
 import { toast } from "react-toastify";
 
-import { Pie, Bar} from "react-chartjs-2";
-import { Chart, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title } from "chart.js";
+import { Pie, Bar } from "react-chartjs-2";
+import {
+  Chart,
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+} from "chart.js";
 import InviteModal from "../components/InviteModal";
 
-Chart.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement, Title);
+Chart.register(
+  ArcElement,
+  Tooltip,
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title
+);
 
 export default function ProjectDetail() {
   const params = useParams();
@@ -38,6 +63,11 @@ export default function ProjectDetail() {
 
   const token = useSelector((state) => state.account.token);
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
+
+  // State for Confirmation Modals
+  const [isDeleteProjectModalOpen, setIsDeleteProjectModalOpen] = useState(false);
+  const [isDeleteImageModalOpen, setIsDeleteImageModalOpen] = useState(false);
+  const [imageToDelete, setImageToDelete] = useState(null); // To track which image to delete
 
   // Fetch project details
   const {
@@ -90,7 +120,7 @@ export default function ProjectDetail() {
     },
   });
 
-  console.log(imagesData)
+  console.log(imagesData);
 
   // Fetch Project Statistics
   const {
@@ -165,25 +195,37 @@ export default function ProjectDetail() {
 
   // Handle Remove Project
   const handleRemove = async () => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
-      try {
-        await deleteProject(params.id, token);
-        toast.success("Project removed successfully!");
-        navigate("/");
-      } catch (error) {
-        console.error("Remove failed:", error);
-        toast.error("Failed to remove project. Please try again.");
-      }
+    // Instead of window.confirm, open the ConfirmationModal
+    setIsDeleteProjectModalOpen(true);
+  };
+
+  // Confirm Remove Project
+  const confirmRemoveProject = async () => {
+    try {
+      await deleteProject(params.id, token);
+      toast.success("Project removed successfully!");
+      navigate("/");
+    } catch (error) {
+      console.error("Remove failed:", error);
+      toast.error("Failed to remove project. Please try again.");
+    } finally {
+      setIsDeleteProjectModalOpen(false);
     }
   };
 
   // Handle Delete Image
-  const handleDeleteImage = async (imageId) => {
-    if (!window.confirm("Are you sure you want to delete this image?")) {
-      return;
-    }
+  const handleDeleteImage = (imageId) => {
+    // Instead of window.confirm, open the ConfirmationModal
+    setImageToDelete(imageId);
+    setIsDeleteImageModalOpen(true);
+  };
+
+  // Confirm Delete Image
+  const confirmDeleteImage = async () => {
+    if (!imageToDelete) return;
+
     try {
-      await deleteImage(projectId, imageId, token);
+      await deleteImage(projectId, imageToDelete, token);
       toast.success("Image deleted successfully!");
       // Invalidate and refetch the images query to reflect the deletion
       queryClient.invalidateQueries(["ProjectImages", projectId]);
@@ -191,6 +233,9 @@ export default function ProjectDetail() {
     } catch (error) {
       console.error("Failed to delete image:", error);
       toast.error("Failed to delete image. Please try again.");
+    } finally {
+      setIsDeleteImageModalOpen(false);
+      setImageToDelete(null);
     }
   };
 
@@ -219,14 +264,14 @@ export default function ProjectDetail() {
 
     // Initialize counts with label names
     project?.data?.labels?.forEach((label) => {
-      counts[label._id] = { name: label.name, color: label.color, count: 0 };
+      counts[label._id] = { _id: label._id, name: label.name, color: label.color, count: 0 };
     });
 
     // Iterate through all images and their annotations to tally counts
     allImages.forEach((image) => {
       console.log(image.annotations);
       image.annotations.forEach((annotation) => {
-        if (annotation.label) { // Ensure label is populated
+        if (annotation.label) {
           const labelId = annotation.label._id || annotation.label; // Depending on how it's populated
           if (counts[labelId]) {
             counts[labelId].count += 1;
@@ -236,30 +281,27 @@ export default function ProjectDetail() {
     });
 
     return counts;
-  }, [allImages, project?.labels]);
+  }, [allImages, project?.data?.labels]);
 
   // Prepare data for the Pie Chart
-  const pieData = useMemo(() => ({
-    labels: ["Labeled Images", "Unlabeled Images"],
-    datasets: [
-      {
-        label: "# of Images",
-        data: [
-          statisticsData?.labeledImagesCount || 0,
-          statisticsData?.unlabeledImagesCount || 0,
-        ],
-        backgroundColor: [
-          "#4caf50", // Green for labeled
-          "#f44336", // Red for unlabeled
-        ],
-        borderColor: [
-          "#ffffff", // White border
-          "#ffffff",
-        ],
-        borderWidth: 1,
-      },
-    ],
-  }), [statisticsData]);
+  const pieData = useMemo(
+    () => ({
+      labels: ["Labeled Images", "Unlabeled Images"],
+      datasets: [
+        {
+          label: "# of Images",
+          data: [
+            statisticsData?.labeledImagesCount || 0,
+            statisticsData?.unlabeledImagesCount || 0,
+          ],
+          backgroundColor: ["#4caf50", "#f44336"],
+          borderColor: ["#ffffff", "#ffffff"],
+          borderWidth: 1,
+        },
+      ],
+    }),
+    [statisticsData]
+  );
 
   // Configuration options for the Pie Chart
   const pieOptions = {
@@ -285,7 +327,7 @@ export default function ProjectDetail() {
     },
   };
 
-  // Optional: Prepare data for the Bar Chart
+  // Prepare data for the Bar Chart
   const barData = useMemo(() => {
     const labels = Object.values(labelUsageCounts).map((label) => label.name);
     const data = Object.values(labelUsageCounts).map((label) => label.count);
@@ -353,13 +395,20 @@ export default function ProjectDetail() {
     );
   }
 
-  
   return (
-    <div className="flex gap-4 container mx-auto p-4">
+    <div className="flex gap-4 container mx-auto p-4 absolute left-0 right-0 top-20 bottom-0">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg">
+      <div className="flex-1 flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg w-screen">
         <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-gray-800">{project.name}</h1>
+          <h1 className="text-4xl font-bold text-gray-800 mb-1  ">
+            {project.data.name}
+          </h1>
+        </div>
+
+        <p className="text-lg text-gray-600 leading-relaxed">
+          {project.data.description}
+        </p>
+        <div className="flex justify-between items-center sticky top-4 bg-white z-10">
           <div className="flex gap-3">
             <button
               className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
@@ -411,7 +460,6 @@ export default function ProjectDetail() {
             </button>
           </div>
         </div>
-        <p className="text-gray-600">{project.description}</p>
 
         {/* Images Grid */}
         <div
@@ -427,7 +475,7 @@ export default function ProjectDetail() {
             return (
               <div
                 key={image._id}
-                className="bg-gray-100 rounded-lg shadow overflow-hidden relative group"
+                className="bg-gray-100 rounded-lg shadow overflow-hidden h-max relative group"
                 ref={isLast ? lastImageRef : null}
               >
                 {/* Conditional Container Styling */}
@@ -619,6 +667,7 @@ export default function ProjectDetail() {
         )}
       </aside>
 
+      {/* Edit Project Modal */}
       {isModalOpen && (
         <Modal
           isOpen={isModalOpen}
@@ -626,6 +675,28 @@ export default function ProjectDetail() {
           initialData={initialData}
         />
       )}
+
+      {/* Confirmation Modal for Deleting Project */}
+      <ConfirmationModal
+        isOpen={isDeleteProjectModalOpen}
+        title="Delete Project"
+        message="This action will permanently remove the project and all its data. Do you want to proceed?"
+        onConfirm={confirmRemoveProject}
+        onCancel={() => setIsDeleteProjectModalOpen(false)}
+        confirmText="Yes, Delete"
+        cancelText="No, Cancel"
+      />
+
+      {/* Confirmation Modal for Deleting Image */}
+      <ConfirmationModal
+        isOpen={isDeleteImageModalOpen}
+        title="Delete Image"
+        message="This action will permanently remove the selected image. Do you want to proceed?"
+        onConfirm={confirmDeleteImage}
+        onCancel={() => setIsDeleteImageModalOpen(false)}
+        confirmText="Yes, Delete"
+        cancelText="No, Cancel"
+      />
     </div>
   );
 }
