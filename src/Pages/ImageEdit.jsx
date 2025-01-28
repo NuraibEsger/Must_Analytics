@@ -454,6 +454,7 @@ export default function ImageEdit() {
           setHoveredPointIndex(null);
         }
         setIsSelecting(false); // Disable selection when drawing
+        setSelectedAnnotationId(null); // Deselect any selected annotation
       }
   
       // For the 'D' key, toggle rectangle drawing
@@ -468,8 +469,9 @@ export default function ImageEdit() {
           setCurMousePos(null);
           setIsPolygonFinished(false);
           setHoveredPointIndex(null);
+          setIsSelecting(false); // Disable selection when drawing
         }
-        setIsSelecting(false); // Disable selection when drawing
+        setSelectedAnnotationId(null); // Deselect any selected annotation
       }
   
       // Finalize the polygon when 'Enter' is pressed
@@ -543,6 +545,12 @@ export default function ImageEdit() {
       return;
     }
   
+    // Deselect any selected annotation when starting to draw
+    if (selectedAnnotationId) {
+      setSelectedAnnotationId(null);
+      setEditingAnnotationId(null);
+    }
+  
     if (drawingMode === "rectangle") {
       setNewAnnotation({
         type: "rectangle",
@@ -555,7 +563,6 @@ export default function ImageEdit() {
     }
   
     if (drawingMode === "polygon") {
-      // Similar logic as before
       if (polygonPoints.length >= 3) {
         const [startX, startY] = polygonPoints[0];
         const dx = x - startX;
@@ -867,6 +874,7 @@ export default function ImageEdit() {
                   setIsPolygonFinished(false);
                   setHoveredPointIndex(null);
                   setIsSelecting(false);
+                  setSelectedAnnotationId(null);
                 }
               }}
             >
@@ -892,6 +900,7 @@ export default function ImageEdit() {
                   setNewAnnotation(null);
                   setHoveredPointIndex(null);
                   setIsSelecting(false);
+                  setSelectedAnnotationId(null);
                 }
               }}
             >
