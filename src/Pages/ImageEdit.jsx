@@ -357,36 +357,34 @@ export default function ImageEdit() {
   // Konva stage ref
   const stageRef = useRef(null);
 
+  const getInitialLabel = () => {
+    let initialLabel = null;
+    if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
+      initialLabel = labelsData.find((label) => label._id === lastSelectedLabelId) || null;
+    }
+    if (!initialLabel && labelsData && Array.isArray(labelsData)) {
+      initialLabel = labelsData[0] || null;
+    }
+    return initialLabel;
+  };
   // Finalize polygon annotation.
   const finalizePolygon = useCallback(() => {
     if (polygonPoints.length < 3) {
       toast.error("A polygon must have at least 3 points.");
       return;
     }
-    const flattenedPoints = polygonPoints.reduce(
-      (acc, curr) => acc.concat(curr),
-      []
-    );
+  
+    const flattenedPoints = polygonPoints.reduce((acc, curr) => acc.concat(curr), []);
     const closedPoints = [
       ...flattenedPoints,
       polygonPoints[0][0],
       polygonPoints[0][1],
     ];
-
-    // Get the first label from labelsData if available
-    let initialLabel = null;
-    if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
-      initialLabel =
-        labelsData.find((label) => label._id === lastSelectedLabelId) || null;
-    }
-    if (!initialLabel && labelsData && Array.isArray(labelsData)) {
-      initialLabel = labelsData[0] || null;
-    }
-
+  
     const annotationWithId = {
       type: "polygon",
       coordinates: closedPoints,
-      label: initialLabel,
+      label: getInitialLabel(),
     };
     setAnnotations((prev) => [...prev, annotationWithId]);
     debouncedSave([annotationWithId]);
@@ -501,10 +499,36 @@ export default function ImageEdit() {
   // ----------------------------
   // MOUSE HANDLERS FOR DRAWING
   // ----------------------------
-  const getRelativePos = (pos) => ({
-    x: (pos.x - stagePosition.x) / stageScale,
-    y: (pos.y - stagePosition.y) / stageScale,
-  });
+  const getRelativePos = (pos) => {
+    const relativeX = (pos.x - stagePosition.x) / stageScale;
+    const relativeY = (pos.y - stagePosition.y) / stageScale;
+  
+    // Check if the position is within image boundaries
+    const withinX = relativeX >= 0 && relativeX <= imageDimensions.width;
+    const withinY = relativeY >= 0 && relativeY <= imageDimensions.height;
+  
+    return {
+      x: Math.min(Math.max(relativeX, 0), imageDimensions.width),
+      y: Math.min(Math.max(relativeY, 0), imageDimensions.height),
+      isWithin: withinX && withinY,
+    };
+  };
+
+  useEffect(() => {
+    if (imageDimensions && imageUrl && !isStageInitialized) {
+      const initialScale = Math.min(
+        (window.innerWidth - 300) / imageDimensions.width,
+        window.innerHeight / imageDimensions.height
+      ) * ZOOM_FACTOR;
+  
+      const imageX = (window.innerWidth - 300 - imageDimensions.width * initialScale) / 2;
+      const imageY = (window.innerHeight - imageDimensions.height * initialScale) / 2;
+  
+      setStageScale(initialScale);
+      setStagePosition({ x: imageX, y: imageY });
+      setIsStageInitialized(true);
+    }
+  }, [imageDimensions, imageUrl, isStageInitialized]);
 
   
 
@@ -512,22 +536,30 @@ export default function ImageEdit() {
     if (!isEditor || !drawingMode) return;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
-    const relPos = getRelativePos(pointerPos); // Get relative position within bounds
+    const { x, y, isWithin } = getRelativePos(pointerPos);
+  
+    if (!isWithin) {
+      setDrawingMode(""); // Cancel the drawing mode
+      return;
+    }
+  
     if (drawingMode === "rectangle") {
       setNewAnnotation({
         type: "rectangle",
-        x: relPos.x,
-        y: relPos.y,
+        x,
+        y,
         width: 0,
         height: 0,
       });
       return;
     }
+  
     if (drawingMode === "polygon") {
+      // Similar logic as before
       if (polygonPoints.length >= 3) {
         const [startX, startY] = polygonPoints[0];
-        const dx = relPos.x - startX;
-        const dy = relPos.y - startY;
+        const dx = x - startX;
+        const dy = y - startY;
         const distance = Math.sqrt(dx * dx + dy * dy);
         if (distance < 10) {
           setIsPolygonFinished(true);
@@ -535,18 +567,30 @@ export default function ImageEdit() {
           return;
         }
       }
-      setPolygonPoints([...polygonPoints, [relPos.x, relPos.y]]);
+      setPolygonPoints([...polygonPoints, [x, y]]);
     }
   };
 
   const handleMouseMove = (e) => {
+    if (!isEditor) return;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
-    const relPos = getRelativePos(pointerPos); // Constrain mouse position to image bounds
-    if (!isEditor) return;
+    const { x, y, isWithin } = getRelativePos(pointerPos);
+  
+    if (!isWithin && drawingMode) {
+      // Reset all drawing states
+      setDrawingMode("");
+      setNewAnnotation(null);
+      setPolygonPoints([]);
+      setCurMousePos(null);
+      setIsPolygonFinished(false);
+      setHoveredPointIndex(null);
+      return;
+    }
+  
     if (newAnnotation && newAnnotation.type === "rectangle") {
-      const newWidth = relPos.x - newAnnotation.x;
-      const newHeight = relPos.y - newAnnotation.y;
+      const newWidth = x - newAnnotation.x;
+      const newHeight = y - newAnnotation.y;
       setNewAnnotation({
         ...newAnnotation,
         width: newWidth,
@@ -554,33 +598,25 @@ export default function ImageEdit() {
       });
       return;
     }
+  
     if (drawingMode === "polygon") {
-      setCurMousePos([relPos.x, relPos.y]);
+      setCurMousePos([x, y]);
     }
   };
 
   const handleMouseUp = () => {
     if (!isEditor) return;
-
-    let initialLabel = null;
-    if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
-      initialLabel =
-        labelsData.find((label) => label._id === lastSelectedLabelId) || null;
-    }
-    if (!initialLabel && labelsData && Array.isArray(labelsData)) {
-      initialLabel = labelsData[0] || null;
-    }
+  
     if (newAnnotation && newAnnotation.type === "rectangle") {
-      const annotationWithId = {
-        type: "rectangle",
-        x: newAnnotation.x,
-        y: newAnnotation.y,
-        width: newAnnotation.width,
-        height: newAnnotation.height,
-        label: initialLabel,
+      // Ensure width and height are positive
+      const rect = {
+        ...newAnnotation,
+        width: Math.abs(newAnnotation.width),
+        height: Math.abs(newAnnotation.height),
+        label: getInitialLabel(),
       };
-      setAnnotations((prev) => [...prev, annotationWithId]);
-      debouncedSave([annotationWithId]);
+      setAnnotations((prev) => [...prev, rect]);
+      debouncedSave([rect]);
       setNewAnnotation(null);
       setDrawingMode("");
     }
@@ -884,7 +920,14 @@ export default function ImageEdit() {
           }}
           className="bg-slate-400"
           onMouseLeave={() => {
-            setDrawingMode("");
+            if (drawingMode) {
+              setDrawingMode("");
+              setNewAnnotation(null);
+              setPolygonPoints([]);
+              setCurMousePos(null);
+              setIsPolygonFinished(false);
+              setHoveredPointIndex(null);
+            }
           }}
         >
           <Layer>
