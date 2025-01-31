@@ -410,7 +410,7 @@ export default function ProjectDetail() {
           </p>
 
           {/* Buttons Section */}
-          <div className="flex justify-start items-center sticky top-4 bg-white z-10 py-2">
+          <div className="flex justify-start items-center sticky top-0 bg-white z-10 py-2">
             <div className="flex gap-3">
               <button
                 className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
@@ -565,7 +565,7 @@ export default function ProjectDetail() {
         </div>
 
         {/* Sidebar on the right */}
-        <aside className="w-80 bg-white shadow-md p-4 sticky top-4 h-fit overflow-y-auto">
+        <aside className="w-80 bg-white shadow-md p-4 sticky top-0 h-screen overflow-y-auto rounded-lg">
           {/* Menu Buttons */}
           <div className="flex justify-around mb-6">
             <button

@@ -1,11 +1,15 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Header from "../components/Header";
 
 export default function Root() {
+  const location = useLocation();
+
+  const isLoginOrRegisterPage = location.pathname.includes("login") || location.pathname.includes("register");
+
   return (
     <>
       <main className="flex flex-col min-h-screen bg-gray-100">
-        <Header />
+        {!isLoginOrRegisterPage && <Header />}
         <div className="flex-1 overflow-hidden">
           {/* Ensure enough space below the fixed header */}
           <Outlet />

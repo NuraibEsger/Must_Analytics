@@ -1094,10 +1094,9 @@ app.post("/project/:projectId/invite", async (req, res) => {
       from: `"Project Invites" Must`,
       to: email,
       subject: `Willkommen bei ${project.name}!`,
-      text: `Lieber ${email},
-      
-      wir freuen uns, dich als Teil des ${project.name}-Teams begrüßen zu dürfen. 
-      Dein Standardpasswort: user123
+      text: `Sehr geehrte Damen und Herren,
+    
+      wir freuen uns, dich als Teil des ${project.name}-Teams begrüßen zu dürfen.
       
       Wir empfehlen dir, dich einzuloggen und dein Passwort aus Sicherheitsgründen zu ändern. 
       Solltest du Fragen haben, wende dich bitte an deinen Projektmanager oder unser Support-Team.
@@ -1105,7 +1104,7 @@ app.post("/project/:projectId/invite", async (req, res) => {
       Besuche ${frontUrl}/accept-invite?token=${inviteToken} für die Registrierung.
     
       Beste Grüße,
-      UltraLine Energy
+      Must Analytics GmbH
       `,
       html: `
         <html>
@@ -1127,7 +1126,7 @@ app.post("/project/:projectId/invite", async (req, res) => {
               box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             }
             .email-header {
-              background-color: #4CAF50;
+              background-color: #1d34d8; /* Blue color */
               padding: 10px;
               border-radius: 8px 8px 0 0;
               text-align: center;
@@ -1143,7 +1142,7 @@ app.post("/project/:projectId/invite", async (req, res) => {
               line-height: 1.6;
             }
             .email-body a {
-              background-color: #4CAF50;
+              background-color: #1d34d8; /* Blue color */
               color: white;
               padding: 10px 20px;
               text-decoration: none;
@@ -1162,10 +1161,10 @@ app.post("/project/:projectId/invite", async (req, res) => {
         <body>
           <div class="email-container">
             <div class="email-header">
-              Willkommen bei ${project.name}!
+              Willkommen bei MustSoftware!
             </div>
             <div class="email-body">
-              <p>Lieber ${email},</p>
+              <p>Sehr geehrte Damen und Herren,</p>
               <p>Wir freuen uns, dich als Teil des <strong>${project.name}</strong>-Teams begrüßen zu dürfen.</p>
               <p>Wir empfehlen dir, dich einzuloggen und dein Passwort aus Sicherheitsgründen zu ändern. 
                  Solltest du Fragen haben, wende dich bitte an deinen Projektmanager oder unser Support-Team.</p>
@@ -1173,7 +1172,7 @@ app.post("/project/:projectId/invite", async (req, res) => {
             </div>
             <div class="email-footer">
               <p>Beste Grüße,</p>
-              <p>UltraLine Energy</p>
+              <p>Must Analytics GmbH</p>
             </div>
           </div>
         </body>
