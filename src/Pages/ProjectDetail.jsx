@@ -120,8 +120,6 @@ export default function ProjectDetail() {
     },
   });
 
-  console.log(imagesData);
-
   // Fetch Project Statistics
   const {
     data: statisticsData,
@@ -269,7 +267,6 @@ export default function ProjectDetail() {
 
     // Iterate through all images and their annotations to tally counts
     allImages.forEach((image) => {
-      console.log(image.annotations);
       image.annotations.forEach((annotation) => {
         if (annotation.label) {
           const labelId = annotation.label._id || annotation.label; // Depending on how it's populated
@@ -396,276 +393,283 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="flex gap-4 container mx-auto p-4 absolute left-0 right-0 top-20 bottom-0">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg w-screen">
-        <div className="flex justify-between items-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-1  ">
-            {project.data.name}
-          </h1>
-        </div>
+    <div className="flex flex-col min-h-screen">
+      {/* Header or Top Bar can be added here if needed */}
 
-        <p className="text-lg text-gray-600 leading-relaxed">
-          {project.data.description}
-        </p>
-        <div className="flex justify-between items-center sticky top-4 bg-white z-10">
-          <div className="flex gap-3">
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={() => setIsInviteModalOpen(true)}
-            >
-              <FiPlus />
-              Invite
-            </button>
-
-            {isInviteModalOpen && (
-              <InviteModal
-                projectId={projectId}
-                onClose={() => setIsInviteModalOpen(false)}
-              />
-            )}
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={handleExport}
-              aria-label="Export Project"
-            >
-              <FiDownload />
-              Export
-            </button>
-            <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
-              <FiUpload />
-              {isUploading ? "Uploading..." : "Upload Data"}
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={handleEdit}
-              aria-label="Edit Project"
-            >
-              <FiEdit />
-              Edit Project
-            </button>
-            <button
-              className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-              onClick={handleRemove}
-              aria-label="Remove Project"
-            >
-              <FiTrash />
-              Remove
-            </button>
+      <div className="flex flex-1 gap-4 container mx-auto absolute left-52 p-4">
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col gap-6 p-6 bg-white shadow-lg rounded-lg">
+          <div className="flex justify-between items-center">
+            <h1 className="text-4xl font-bold text-gray-800 mb-1">
+              {project.data.name}
+            </h1>
           </div>
-        </div>
 
-        {/* Images Grid */}
-        <div
-          className="grid gap-4 overflow-y-auto"
-          style={{
-            gridTemplateColumns: `repeat(${selectedColumns}, minmax(0, 1fr))`,
-          }}
-        >
-          {allImages.map((image, index) => {
-            const isLast = index === allImages.length - 1;
-            const isLabeled = image.annotations && image.annotations.length > 0;
+          <p className="text-lg text-gray-600 leading-relaxed">
+            {project.data.description}
+          </p>
 
-            return (
-              <div
-                key={image._id}
-                className="bg-gray-100 rounded-lg shadow overflow-hidden h-max relative group"
-                ref={isLast ? lastImageRef : null}
+          {/* Buttons Section */}
+          <div className="flex justify-start items-center sticky top-4 bg-white z-10 py-2">
+            <div className="flex gap-3">
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={() => setIsInviteModalOpen(true)}
               >
-                {/* Conditional Container Styling */}
-                <div
-                  className={`relative w-full flex items-center ${
-                    selectedColumns === 1 ? "aspect-auto" : "aspect-square"
-                  }`}
-                >
-                  <Link to={`/edit-image/${image._id}`}>
-                    <img
-                      src={`${backendUrl}/${image.filePath}`}
-                      alt={image.fileName}
-                      className="object-cover object-center w-full h-full"
-                    />
-                  </Link>
+                <FiPlus />
+                Invite
+              </button>
 
-                  {/* Overlay if Image is Labeled */}
-                  {isLabeled && (
-                    <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full flex items-center">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        role="img"
-                        aria-label="Labeled Image"
-                        className="h-4 w-4 text-white"
-                      >
-                        <path d="M19,6H22V8H19V11H17V8H14V6H17V3H19V6M17,17V14H19V19H3V6H11V8H5V17H17Z"></path>
-                      </svg>
-                      {/* Always Visible Tooltip */}
-                      <span className="ml-1 px-2 py-0.5 bg-[#2196f3] text-white text-xs rounded">
-                        Labeled
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Hover Buttons */}
-                <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition duration-300 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100">
-                  <button
-                    className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
-                    onClick={() => handleDeleteImage(image._id)}
-                    aria-label="Delete Image"
-                  >
-                    <FiTrash2 />
-                    Delete
-                  </button>
-                  <Link
-                    to={`/edit-image/${image._id}`}
-                    className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-                    aria-label="See Image"
-                  >
-                    <FiEye />
-                    See
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Loading Indicator for Next Page */}
-        {isFetchingNextPage && (
-          <div className="flex justify-center py-4">
-            <ClipLoader color="#000" size={30} />
-          </div>
-        )}
-
-        {/* Handle No More Images */}
-        {!hasNextPage && !imagesLoading && (
-          <div className="flex justify-center py-4">
-            <p className="text-gray-500">No more images to load.</p>
-          </div>
-        )}
-
-        {/* Handle Error While Loading Images */}
-        {imagesError && (
-          <div className="flex flex-col justify-center items-center py-4">
-            <p className="text-red-600 font-semibold">Error loading images:</p>
-            <p className="text-sm text-gray-700 mt-2">
-              {imagesErrorData?.message || "Please try again."}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Sidebar on the right */}
-      <aside className="w-64 bg-white shadow-md p-4 sticky top-4 h-fit overflow-y-auto">
-        {/* Menu Buttons */}
-        <div className="flex justify-around mb-6">
-          <button
-            className={`py-2 px-4 text-center ${
-              activeMenu === "Filter"
-                ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
-                : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
-            } transition-colors duration-200`}
-            onClick={() => setActiveMenu("Filter")}
-            aria-label="Filter Menu"
-          >
-            Filter
-          </button>
-          <button
-            className={`py-2 px-4 text-center ${
-              activeMenu === "Statistics"
-                ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
-                : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
-            } transition-colors duration-200`}
-            onClick={() => setActiveMenu("Statistics")}
-            aria-label="Statistics Menu"
-          >
-            Statistics
-          </button>
-        </div>
-
-        {/* Conditional Rendering Based on Active Menu */}
-        {activeMenu === "Filter" ? (
-          <>
-            <div className="mb-6">
-              <h3 className="font-semibold mb-2">Columns</h3>
-              <div className="flex gap-2 flex-wrap">
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <button
-                    key={num}
-                    className={`px-5 py-1 rounded-full transition-all duration-200 
-                      ${
-                        selectedColumns === num
-                          ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow"
-                          : "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                      }`}
-                    onClick={() => setSelectedColumns(num)}
-                    aria-label={`Set columns to ${num}`}
-                  >
-                    {num}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {/* Additional Filter Options Can Be Added Here */}
-          </>
-        ) : (
-          <>
-            <div className="mb-6">
-              <h3 className="font-semibold mb-2">Statistics</h3>
-              {statisticsLoading ? (
-                <div className="flex justify-center items-center">
-                  <ClipLoader color="#000" size={30} />
-                </div>
-              ) : statisticsError ? (
-                <div className="text-red-600">
-                  Error loading statistics:{" "}
-                  {statisticsErrorData?.message || "Unknown error"}
-                </div>
-              ) : statisticsData ? (
-                <div className="flex flex-col items-center">
-                  {/* Total Images Display */}
-                  <div className="mb-4 text-lg font-semibold">
-                    Total Images: {statisticsData.totalImages}
-                  </div>
-                  {/* Pie Chart */}
-                  <div className="w-48 h-48 mb-6">
-                    <Pie data={pieData} options={pieOptions} />
-                  </div>
-                  {/* Bar Chart for Label Usage (Optional) */}
-                  <div className="w-full h-32 mb-6">
-                    <Bar data={barData} options={barOptions} />
-                  </div>
-                  {/* Label Usage Counts */}
-                  <div className="w-full">
-                    <h4 className="text-md font-semibold mb-2">Label Usage</h4>
-                    <ul>
-                      {Object.values(labelUsageCounts).map((label) => (
-                        <li key={label._id} className="flex items-center mb-1">
-                          <span
-                            className="w-3 h-3 rounded-full mr-2"
-                            style={{ backgroundColor: label.color }}
-                          ></span>
-                          <span className="text-gray-700">
-                            {label.name} - {label.count}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="text-gray-600">No statistics available.</div>
+              {isInviteModalOpen && (
+                <InviteModal
+                  projectId={projectId}
+                  onClose={() => setIsInviteModalOpen(false)}
+                />
               )}
+
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={handleExport}
+                aria-label="Export Project"
+              >
+                <FiDownload />
+                Export
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
+                <FiUpload />
+                {isUploading ? "Uploading..." : "Upload Data"}
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={handleEdit}
+                aria-label="Edit Project"
+              >
+                <FiEdit />
+                Edit Project
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                onClick={handleRemove}
+                aria-label="Remove Project"
+              >
+                <FiTrash />
+                Remove
+              </button>
             </div>
-          </>
-        )}
-      </aside>
+          </div>
+
+          {/* Images Grid */}
+          <div
+            className="grid gap-4 overflow-y-auto"
+            style={{
+              gridTemplateColumns: `repeat(${selectedColumns}, minmax(0, 1fr))`,
+            }}
+          >
+            {allImages.map((image, index) => {
+              const isLast = index === allImages.length - 1;
+              const isLabeled = image.annotations && image.annotations.length > 0;
+
+              return (
+                <div
+                  key={image._id}
+                  className="bg-gray-100 rounded-lg shadow overflow-hidden h-max relative group"
+                  ref={isLast ? lastImageRef : null}
+                >
+                  {/* Conditional Container Styling */}
+                  <div
+                    className={`relative w-full flex items-center ${
+                      selectedColumns === 1 ? "aspect-auto" : "aspect-square"
+                    }`}
+                  >
+                    <Link to={`/edit-image/${image._id}`}>
+                      <img
+                        src={`${backendUrl}/${image.filePath}`}
+                        alt={image.fileName}
+                        className="object-cover object-center w-full h-full"
+                      />
+                    </Link>
+
+                    {/* Overlay if Image is Labeled */}
+                    {isLabeled && (
+                      <div className="absolute bottom-1 right-1 bg-[#2196f3] p-1 rounded-full flex items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          role="img"
+                          aria-label="Labeled Image"
+                          className="h-4 w-4 text-white"
+                        >
+                          <path d="M19,6H22V8H19V11H17V8H14V6H17V3H19V6M17,17V14H19V19H3V6H11V8H5V17H17Z"></path>
+                        </svg>
+                        {/* Always Visible Tooltip */}
+                        <span className="ml-1 px-2 py-0.5 bg-[#2196f3] text-white text-xs rounded">
+                          Labeled
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Hover Buttons */}
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition duration-300 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100">
+                    <button
+                      className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition"
+                      onClick={() => handleDeleteImage(image._id)}
+                      aria-label="Delete Image"
+                    >
+                      <FiTrash2 />
+                      Delete
+                    </button>
+                    <Link
+                      to={`/edit-image/${image._id}`}
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                      aria-label="See Image"
+                    >
+                      <FiEye />
+                      See
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Loading Indicator for Next Page */}
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-4">
+              <ClipLoader color="#000" size={30} />
+            </div>
+          )}
+
+          {/* Handle No More Images */}
+          {!hasNextPage && !imagesLoading && (
+            <div className="flex justify-center py-4">
+              <p className="text-gray-500">No more images to load.</p>
+            </div>
+          )}
+
+          {/* Handle Error While Loading Images */}
+          {imagesError && (
+            <div className="flex flex-col justify-center items-center py-4">
+              <p className="text-red-600 font-semibold">Error loading images:</p>
+              <p className="text-sm text-gray-700 mt-2">
+                {imagesErrorData?.message || "Please try again."}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Sidebar on the right */}
+        <aside className="w-80 bg-white shadow-md p-4 sticky top-4 h-fit overflow-y-auto">
+          {/* Menu Buttons */}
+          <div className="flex justify-around mb-6">
+            <button
+              className={`py-2 px-4 text-center ${
+                activeMenu === "Filter"
+                  ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
+                  : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
+              } transition-colors duration-200`}
+              onClick={() => setActiveMenu("Filter")}
+              aria-label="Filter Menu"
+            >
+              Filter
+            </button>
+            <button
+              className={`py-2 px-4 text-center ${
+                activeMenu === "Statistics"
+                  ? "border-b-2 border-indigo-600 text-indigo-600 font-semibold"
+                  : "border-b-2 border-transparent text-gray-600 hover:text-indigo-600"
+              } transition-colors duration-200`}
+              onClick={() => setActiveMenu("Statistics")}
+              aria-label="Statistics Menu"
+            >
+              Statistics
+            </button>
+          </div>
+
+          {/* Conditional Rendering Based on Active Menu */}
+          {activeMenu === "Filter" ? (
+            <>
+              <div className="mb-6">
+                <h3 className="font-semibold mb-2">Columns</h3>
+                <div className="flex gap-2 flex-wrap">
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <button
+                      key={num}
+                      className={`px-5 py-1 rounded-full transition-all duration-200 
+                        ${
+                          selectedColumns === num
+                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow"
+                            : "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        }`}
+                      onClick={() => setSelectedColumns(num)}
+                      aria-label={`Set columns to ${num}`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Additional Filter Options Can Be Added Here */}
+            </>
+          ) : (
+            <>
+              <div className="mb-6">
+                <h3 className="font-semibold mb-2">Statistics</h3>
+                {statisticsLoading ? (
+                  <div className="flex justify-center items-center">
+                    <ClipLoader color="#000" size={30} />
+                  </div>
+                ) : statisticsError ? (
+                  <div className="text-red-600">
+                    Error loading statistics:{" "}
+                    {statisticsErrorData?.message || "Unknown error"}
+                  </div>
+                ) : statisticsData ? (
+                  <div className="flex flex-col items-center">
+                    {/* Total Images Display */}
+                    <div className="mb-4 text-lg font-semibold">
+                      Total Images: {statisticsData.totalImages}
+                    </div>
+                    {/* Pie Chart */}
+                    <div className="w-48 h-48 mb-6">
+                      <Pie data={pieData} options={pieOptions} />
+                    </div>
+                    {/* Bar Chart for Label Usage (Optional) */}
+                    <div className="w-full h-32 mb-6">
+                      <Bar data={barData} options={barOptions} />
+                    </div>
+                    {/* Label Usage Counts */}
+                    <div className="w-full">
+                      <h4 className="text-md font-semibold mb-2">Label Usage</h4>
+                      <ul>
+                        {Object.values(labelUsageCounts).map((label) => (
+                          <li key={label._id} className="flex items-center mb-1">
+                            <span
+                              className="w-3 h-3 rounded-full mr-2"
+                              style={{ backgroundColor: label.color }}
+                            ></span>
+                            <span className="text-gray-700">
+                              {label.name} - {label.count}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-600">No statistics available.</div>
+                )}
+              </div>
+            </>
+          )}
+        </aside>
+      </div>
 
       {/* Edit Project Modal */}
       {isModalOpen && (

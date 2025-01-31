@@ -9,7 +9,10 @@ import { FiEdit, FiPlus, FiUploadCloud } from "react-icons/fi";
 import EditLabelsModal from "./EditLabelsModal";
 
 export default function Modal({ isOpen, toggleModal, initialData }) {
-  const { formik, handleFileChange, isSubmitting } = useProjectForm(toggleModal, initialData);
+  const { formik, handleFileChange, isSubmitting } = useProjectForm(
+    toggleModal,
+    initialData
+  );
   const [isModalOpen, setModalOpen] = useState(false);
   const [isEditLabelsModalOpen, setEditLabelsModalOpen] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -23,7 +26,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     setEditLabelsModalOpen(!isEditLabelsModalOpen);
   };
 
-
   const { data, isLoading, isError } = useQuery({
     queryKey: ["labels"],
     queryFn: async () => {
@@ -34,10 +36,8 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     enabled: isOpen, // Only fetch if modal is open
   });
 
-  // If modal is not open, don't render anything
   if (!isOpen) return null;
 
-  // Show a loading spinner if data is loading
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
@@ -48,7 +48,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
     );
   }
 
-  // Show an error message if there is an error fetching labels
   if (isError) {
     return (
       <div
@@ -64,13 +63,11 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
           <h2 id="modal-title" className="text-xl font-bold mb-4">
             {initialData ? "Edit Project" : "Add New Project"}
           </h2>
-          {/* Rest of the modal content */}
         </div>
       </div>
     );
   }
 
-  // Proceed if data is successfully fetched
   const labelOptions = data.data.map((label) => ({
     value: label._id,
     label: label.name,
@@ -78,15 +75,15 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
   }));
 
   const formatOptionLabel = (option) => (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ display: "flex", alignItems: "center" }}>
       <span
         style={{
           backgroundColor: option.color,
-          borderRadius: '50%',
-          width: '10px',
-          height: '10px',
-          display: 'inline-block',
-          marginRight: '8px',
+          borderRadius: "50%",
+          width: "10px",
+          height: "10px",
+          display: "inline-block",
+          marginRight: "8px",
         }}
       ></span>
       <span>{option.label}</span>
@@ -95,8 +92,14 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
 
   const handleCustomFileChange = (e) => {
     const files = e.target.files;
-    setSelectedFiles(Array.from(files)); // store file objects for display
-    handleFileChange(e); // call original handler from useProjectForm
+    setSelectedFiles(Array.from(files));
+    handleFileChange(e);
+  };
+
+  const truncateFileName = (fileName, maxLength = 20) => {
+    return fileName.length > maxLength
+      ? `${fileName.substring(0, maxLength)}...`
+      : fileName;
   };
 
   return (
@@ -140,6 +143,48 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             )}
           </div>
 
+          <div className="mb-4">
+            <label className="block text-gray-700 font-bold mb-2">
+              Upload Files
+            </label>
+            <div className="relative">
+              <input
+                id="file-input"
+                name="files"
+                type="file"
+                multiple
+                onChange={handleCustomFileChange}
+                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
+              />
+              <div className="border h-10 border-gray-300 rounded-md px-4 py-2 flex items-center justify-center cursor-pointer">
+                <div className="flex items-center">
+                  <FiUploadCloud className="text-purple-700 mr-3 text-4xl" />
+                  <span className="text-gray-600">
+                    {selectedFiles.length > 0
+                      ? `${selectedFiles.length} files selected`
+                      : "Choose files..."}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {selectedFiles.length > 0 && (
+              <div className="mt-2 max-h-32 overflow-y-auto">
+                {selectedFiles.map((file, index) => (
+                  <div
+                    key={index}
+                    className="text-sm text-gray-600 truncate"
+                    title={file.name}
+                  >
+                    {truncateFileName(file.name)}
+                  </div>
+                ))}
+              </div>
+            )}
+            {formik.errors.files && formik.touched.files && (
+              <span className="text-red-500">{formik.errors.files}</span>
+            )}
+          </div>
+          
           <label className="block text-gray-700 font-bold mb-2">Labels</label>
           <div className="mb-4 flex items-center">
             <div className="flex-1">
@@ -176,8 +221,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               <FiPlus />
             </button>
           </div>
-          
-          {/* Button to open Edit Labels Modal */}
+
           <div className="mt-6 flex justify-center">
             <button
               type="button"
@@ -190,37 +234,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
             </button>
           </div>
 
-          {/* Custom File Input Section */}
-          <div className="mb-4">
-            <label className="block text-gray-700 font-bold mb-2">
-              Upload Files
-            </label>
-            <div className="relative">
-              {/* Hidden file input */}
-              <input
-                id="file-input"
-                name="files"
-                type="file"
-                multiple
-                onChange={handleCustomFileChange}
-                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
-              />
-              <div className="border h-32 border-gray-300 rounded-md px-4 py-2 flex items-center justify-center cursor-pointer">
-                <div className="flex items-center">
-                  {/* FiCloudDownload Icon (make it larger using Tailwind’s text-4xl, for example) */}
-                  <FiUploadCloud className="text-purple-700 mr-3 text-4xl" />
-                  <span className="text-gray-600">
-                    {selectedFiles.length > 0
-                      ? selectedFiles.map((file) => file.name).join(", ")
-                      : "Choose files..."}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {formik.errors.files && formik.touched.files && (
-              <span className="text-red-500">{formik.errors.files}</span>
-            )}
-          </div>
 
           <div className="flex justify-between">
             <button
@@ -245,8 +258,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
           onClose={() => setModalOpen(false)}
           toggleLabelModal={toggleLabelModal}
         />
-
-        {/* Edit Labels Modal */}
         <EditLabelsModal
           isOpen={isEditLabelsModalOpen}
           onClose={toggleEditLabelsModal}

@@ -27,13 +27,7 @@ import {
 } from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
-import {
-  FiEye,
-  FiTrash,
-  FiBox,
-  FiEyeOff,
-  FiPlus,
-} from "react-icons/fi";
+import { FiEye, FiTrash, FiEyeOff, FiPlus } from "react-icons/fi";
 import { FaDrawPolygon } from "react-icons/fa";
 import { PiBoundingBoxDuotone } from "react-icons/pi";
 import { LuMousePointerClick } from "react-icons/lu";
@@ -43,6 +37,7 @@ import { useQuery, useMutation, useQueryClient } from "react-query";
 import { useDebouncedCallback } from "use-debounce";
 import { getLabelsByProjectId } from "../services/labelService";
 import moveIcon from "../images/move.png";
+import CustomSelect from "../components/CustomSelect";
 
 // A helper component for enabling the transformer
 const TransformerComponent = ({ selectedShapeRef }) => {
@@ -64,6 +59,8 @@ const Loading = () => (
 );
 
 const ZOOM_FACTOR = 0.8;
+
+const SIDEBAR_WIDTH = 384
 
 export default function ImageEdit() {
   const { id } = useParams();
@@ -129,13 +126,13 @@ export default function ImageEdit() {
           // Calculate initial scale with zoom factor
           const initialScale =
             Math.min(
-              (window.innerWidth - 300) / img.width, // 300px sidebar
+              (window.innerWidth - SIDEBAR_WIDTH) / img.width, // 300px sidebar
               window.innerHeight / img.height
             ) * ZOOM_FACTOR;
 
           // Calculate image position to center it
           const imageX =
-            (window.innerWidth - 300 - img.width * initialScale) / 2;
+            (window.innerWidth - SIDEBAR_WIDTH - img.width * initialScale) / 2;
           const imageY = (window.innerHeight - img.height * initialScale) / 2;
 
           // Set initial scale and position only if not already set
@@ -360,7 +357,8 @@ export default function ImageEdit() {
   const getInitialLabel = () => {
     let initialLabel = null;
     if (lastSelectedLabelId && labelsData && Array.isArray(labelsData)) {
-      initialLabel = labelsData.find((label) => label._id === lastSelectedLabelId) || null;
+      initialLabel =
+        labelsData.find((label) => label._id === lastSelectedLabelId) || null;
     }
     if (!initialLabel && labelsData && Array.isArray(labelsData)) {
       initialLabel = labelsData[0] || null;
@@ -373,14 +371,17 @@ export default function ImageEdit() {
       toast.error("A polygon must have at least 3 points.");
       return;
     }
-  
-    const flattenedPoints = polygonPoints.reduce((acc, curr) => acc.concat(curr), []);
+
+    const flattenedPoints = polygonPoints.reduce(
+      (acc, curr) => acc.concat(curr),
+      []
+    );
     const closedPoints = [
       ...flattenedPoints,
       polygonPoints[0][0],
       polygonPoints[0][1],
     ];
-  
+
     const annotationWithId = {
       type: "polygon",
       coordinates: closedPoints,
@@ -402,7 +403,7 @@ export default function ImageEdit() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isEditor) return;
-  
+
       // If Esc key is pressed, cancel drawing and deselect
       if (e.key === "Escape") {
         setDrawingMode(""); // Cancel the drawing mode
@@ -415,7 +416,7 @@ export default function ImageEdit() {
         setSelectedAnnotationId(null); // Deselect any selected annotation
         return;
       }
-  
+
       // If 'S' key is pressed, toggle selection mode
       if (e.key.toLowerCase() === "s") {
         if (drawingMode) {
@@ -435,7 +436,7 @@ export default function ImageEdit() {
         });
         return;
       }
-  
+
       // For the 'F' key, toggle polygon drawing
       if (e.key.toLowerCase() === "f") {
         if (drawingMode === "polygon") {
@@ -456,7 +457,7 @@ export default function ImageEdit() {
         setIsSelecting(false); // Disable selection when drawing
         setSelectedAnnotationId(null); // Deselect any selected annotation
       }
-  
+
       // For the 'D' key, toggle rectangle drawing
       else if (e.key.toLowerCase() === "d") {
         if (drawingMode === "rectangle") {
@@ -473,7 +474,7 @@ export default function ImageEdit() {
         }
         setSelectedAnnotationId(null); // Deselect any selected annotation
       }
-  
+
       // Finalize the polygon when 'Enter' is pressed
       if (drawingMode === "polygon" && e.key === "Enter") {
         if (polygonPoints.length < 3) {
@@ -483,10 +484,10 @@ export default function ImageEdit() {
         finalizePolygon(); // Finalize the polygon drawing
       }
     };
-  
+
     // Add event listener for keydown
     window.addEventListener("keydown", handleKeyDown);
-  
+
     // Cleanup the event listener on component unmount
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
@@ -504,11 +505,11 @@ export default function ImageEdit() {
   const getRelativePos = (pos) => {
     const relativeX = (pos.x - stagePosition.x) / stageScale;
     const relativeY = (pos.y - stagePosition.y) / stageScale;
-  
+
     // Check if the position is within image boundaries
     const withinX = relativeX >= 0 && relativeX <= imageDimensions.width;
     const withinY = relativeY >= 0 && relativeY <= imageDimensions.height;
-  
+
     return {
       x: Math.min(Math.max(relativeX, 0), imageDimensions.width),
       y: Math.min(Math.max(relativeY, 0), imageDimensions.height),
@@ -518,39 +519,39 @@ export default function ImageEdit() {
 
   useEffect(() => {
     if (imageDimensions && imageUrl && !isStageInitialized) {
-      const initialScale = Math.min(
-        (window.innerWidth - 300) / imageDimensions.width,
-        window.innerHeight / imageDimensions.height
-      ) * ZOOM_FACTOR;
-  
-      const imageX = (window.innerWidth - 300 - imageDimensions.width * initialScale) / 2;
-      const imageY = (window.innerHeight - imageDimensions.height * initialScale) / 2;
-  
+      const initialScale =
+        Math.min(
+          (window.innerWidth - 300) / imageDimensions.width,
+          window.innerHeight / imageDimensions.height
+        ) * ZOOM_FACTOR;
+
+      const imageX =
+        (window.innerWidth - 300 - imageDimensions.width * initialScale) / 2;
+      const imageY =
+        (window.innerHeight - imageDimensions.height * initialScale) / 2;
+
       setStageScale(initialScale);
       setStagePosition({ x: imageX, y: imageY });
       setIsStageInitialized(true);
     }
   }, [imageDimensions, imageUrl, isStageInitialized]);
 
-  
-
   const handleMouseDown = (e) => {
     if (!isEditor || !drawingMode) return;
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     const { x, y, isWithin } = getRelativePos(pointerPos);
-  
+
     if (!isWithin) {
-      setDrawingMode(""); // Cancel the drawing mode
-      return;
+      return; // Do not add points outside the image
     }
-  
+
     // Deselect any selected annotation when starting to draw
     if (selectedAnnotationId) {
       setSelectedAnnotationId(null);
       setEditingAnnotationId(null);
     }
-  
+
     if (drawingMode === "rectangle") {
       setNewAnnotation({
         type: "rectangle",
@@ -561,7 +562,7 @@ export default function ImageEdit() {
       });
       return;
     }
-  
+
     if (drawingMode === "polygon") {
       if (polygonPoints.length >= 3) {
         const [startX, startY] = polygonPoints[0];
@@ -583,18 +584,12 @@ export default function ImageEdit() {
     const stage = e.target.getStage();
     const pointerPos = stage.getPointerPosition();
     const { x, y, isWithin } = getRelativePos(pointerPos);
-  
-    if (!isWithin && drawingMode) {
-      // Reset all drawing states
-      setDrawingMode("");
-      setNewAnnotation(null);
-      setPolygonPoints([]);
-      setCurMousePos(null);
-      setIsPolygonFinished(false);
-      setHoveredPointIndex(null);
+
+    if (!isWithin) {
+      setCurMousePos(null); // Clear the current mouse position
       return;
     }
-  
+
     if (newAnnotation && newAnnotation.type === "rectangle") {
       const newWidth = x - newAnnotation.x;
       const newHeight = y - newAnnotation.y;
@@ -605,15 +600,28 @@ export default function ImageEdit() {
       });
       return;
     }
-  
+
     if (drawingMode === "polygon") {
       setCurMousePos([x, y]);
     }
   };
 
+  const handleMouseLeave = () => {
+    // Do not reset the drawing state, just prevent adding new points
+    setCurMousePos(null); // Clear the current mouse position
+  };
+
+  const handleMouseEnter = () => {
+    // Preserve the drawing state when the mouse re-enters the image
+    if (drawingMode === "polygon" && polygonPoints.length > 0) {
+      // Continue drawing the polygon
+      setCurMousePos(polygonPoints[polygonPoints.length - 1]);
+    }
+  };
+
   const handleMouseUp = () => {
     if (!isEditor) return;
-  
+
     if (newAnnotation && newAnnotation.type === "rectangle") {
       // Ensure width and height are positive
       const rect = {
@@ -740,7 +748,6 @@ export default function ImageEdit() {
               >
                 <div className="flex items-center space-x-3">
                   {/* Conditionally render icon based on label type */}
-                  {console.log(annotation)}
                   {(annotation.coordinates && (
                     <FaDrawPolygon size={20} className="text-gray-500" />
                   )) || (
@@ -748,38 +755,13 @@ export default function ImageEdit() {
                   )}
 
                   {/* Select label dropdown */}
-                  <select
-                    disabled={!isEditor}
-                    value={annotation.label?._id || ""}
-                    onChange={(e) =>
-                      handleLabelChange(annotation._id, e.target.value)
-                    }
-                    className={`border border-gray-300 rounded-md px-3 py-2 text-sm ${
-                      !isEditor ? "bg-gray-200 cursor-not-allowed" : "bg-white"
-                    } focus:outline-none focus:ring-2 focus:ring-indigo-500`}
-                    aria-label={`Select Label for Annotation ${annotation._id}`}
-                  >
-                    <option value="" disabled={annotation.label}>
-                      Select Label
-                    </option>
-                    {labelsData && Array.isArray(labelsData)
-                      ? labelsData.map((label) => (
-                          <option
-                            key={label._id}
-                            value={label._id}
-                            disabled={annotation.label?._id === label._id}
-                            style={
-                              selectedAnnotationId === annotation._id &&
-                              annotation.label?._id === label._id
-                                ? { backgroundColor: "#e0f7fa" }
-                                : {}
-                            }
-                          >
-                            {label.name}
-                          </option>
-                        ))
-                      : null}
-                  </select>
+                  <CustomSelect 
+                    annotation={annotation}
+                    labelsData={labelsData}
+                    handleLabelChange={handleLabelChange}
+                    selectedAnnotationId={selectedAnnotationId}
+                    isEditor={isEditor}                  
+                  />
                 </div>
 
                 <div className="flex items-center space-x-3">
@@ -910,7 +892,7 @@ export default function ImageEdit() {
         )}
 
         <Stage
-          width={stageWidth - 300}
+          width={stageWidth - SIDEBAR_WIDTH}
           height={stageHeight}
           scaleX={stageScale}
           scaleY={stageScale}
@@ -928,19 +910,11 @@ export default function ImageEdit() {
             cursor: drawingMode ? "crosshair" : "default",
           }}
           className="bg-slate-400"
-          onMouseLeave={() => {
-            if (drawingMode) {
-              setDrawingMode("");
-              setNewAnnotation(null);
-              setPolygonPoints([]);
-              setCurMousePos(null);
-              setIsPolygonFinished(false);
-              setHoveredPointIndex(null);
-            }
-          }}
+          onMouseLeave={handleMouseLeave} // Use the updated handleMouseLeave
+          onMouseEnter={handleMouseEnter} // Use the updated handleMouseEnter
         >
           <Layer>
-            <KonvaImage image={konvaImage} x={imageX} y={imageY} />
+            <KonvaImage image={konvaImage} x={0} y={0} />
 
             {drawingMode === "rectangle" && newAnnotation && (
               <Rect
@@ -973,9 +947,12 @@ export default function ImageEdit() {
                   lineJoin="round"
                   lineCap="round"
                   dash={[4, 4]}
+                  closed={polygonPoints.length > 1}
                   fill={
-                    isPolygonFinished ? "rgba(255, 0, 0, 0.3)" : "transparent"
-                  } // Set fill color with transparency
+                    polygonPoints.length >= 1
+                      ? "rgba(255, 255, 255, 0.1)" // Semi-transparent fill while drawing
+                      : "transparent"
+                  }
                 />
                 {/* Render circle markers for each polygon vertex */}
                 {polygonPoints.map((pt, index) => (
@@ -983,16 +960,8 @@ export default function ImageEdit() {
                     key={`preview-polygon-point-${index}`}
                     x={pt[0]}
                     y={pt[1]}
-                    radius={
-                      index === 0 && hoveredPointIndex === index
-                        ? 12
-                        : 10 / stageScale
-                    } // Reverse zoom: divide by stageScale
-                    fill={
-                      index === 0 &&
-                      hoveredPointIndex === index &&
-                      "transparent"
-                    }
+                    radius={12}
+                    fill={index === 0 ? "red" : "transparent"} // Set the first point to red
                     stroke="silver"
                     strokeWidth={1}
                     onMouseEnter={() => {
@@ -1294,7 +1263,7 @@ export default function ImageEdit() {
                           x={pt[0]}
                           y={pt[1]}
                           radius={10}
-                          fill="transparent"
+                          fill={index === 0 ? "red" : "transparent"}
                           stroke="silver"
                           draggable
                           onDragMove={(e) => {
@@ -1321,7 +1290,6 @@ export default function ImageEdit() {
                                   : a
                               )
                             );
-                            // (Optionally, you could also update on every drag move if desired.)
                           }}
                           onDragEnd={(e) => {
                             e.cancelBubble = true;

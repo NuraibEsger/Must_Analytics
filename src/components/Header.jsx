@@ -19,10 +19,10 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 px-6 shadow-md flex justify-between items-center">
+    <header className="py-4 px-6 shadow-md flex justify-between items-center">
       <div className="flex items-center gap-4">
         {/* Logo Section */}
-        <img src={logo} alt="Logo" className="h-8 w-auto" />
+        <a href="https://www.musts.io/" target="_blank" rel="noopener noreferrer"><img src={logo} alt="Logo" className="h-14 w-auto" /></a>
         
         <button
           onClick={() => navigate("/")}

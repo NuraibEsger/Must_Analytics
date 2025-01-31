@@ -1091,16 +1091,93 @@ app.post("/project/:projectId/invite", async (req, res) => {
     });
 
     await transporter.sendMail({
-      from: `"Project Invites" nurayib.esger@gmail.com`,
+      from: `"Project Invites" Must`,
       to: email,
-      subject: `Invitation to join ${project.name}`,
-      text: `Hello! You have been invited to join the project "${project.name}" as a ${role}. 
-             Click this link to accept: ${inviteLink}`,
+      subject: `Willkommen bei ${project.name}!`,
+      text: `Lieber ${email},
+      
+      wir freuen uns, dich als Teil des ${project.name}-Teams begrüßen zu dürfen. 
+      Dein Standardpasswort: user123
+      
+      Wir empfehlen dir, dich einzuloggen und dein Passwort aus Sicherheitsgründen zu ändern. 
+      Solltest du Fragen haben, wende dich bitte an deinen Projektmanager oder unser Support-Team.
+      
+      Besuche ${frontUrl}/accept-invite?token=${inviteToken} für die Registrierung.
+    
+      Beste Grüße,
+      UltraLine Energy
+      `,
       html: `
-        <p>Hello!</p>
-        <p>You have been invited to join the project <strong>${project.name}</strong> as a <strong>${role}</strong>.</p>
-        <p>Click the link below to accept the invitation:</p>
-        <a href="${inviteLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Accept Invitation</a>
+        <html>
+        <head>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 0;
+              padding: 0;
+              background-color: #f4f4f4;
+            }
+            .email-container {
+              width: 100%;
+              max-width: 600px;
+              margin: 20px auto;
+              background-color: #fff;
+              border-radius: 8px;
+              padding: 20px;
+              box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+            .email-header {
+              background-color: #4CAF50;
+              padding: 10px;
+              border-radius: 8px 8px 0 0;
+              text-align: center;
+              color: white;
+              font-size: 24px;
+            }
+            .email-body {
+              font-size: 16px;
+              color: #333;
+              margin-top: 20px;
+            }
+            .email-body p {
+              line-height: 1.6;
+            }
+            .email-body a {
+              background-color: #4CAF50;
+              color: white;
+              padding: 10px 20px;
+              text-decoration: none;
+              border-radius: 5px;
+              display: inline-block;
+              margin-top: 20px;
+            }
+            .email-footer {
+              text-align: center;
+              margin-top: 30px;
+              font-size: 14px;
+              color: #777;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="email-header">
+              Willkommen bei ${project.name}!
+            </div>
+            <div class="email-body">
+              <p>Lieber ${email},</p>
+              <p>Wir freuen uns, dich als Teil des <strong>${project.name}</strong>-Teams begrüßen zu dürfen.</p>
+              <p>Wir empfehlen dir, dich einzuloggen und dein Passwort aus Sicherheitsgründen zu ändern. 
+                 Solltest du Fragen haben, wende dich bitte an deinen Projektmanager oder unser Support-Team.</p>
+              <p>Besuche <a href="${frontUrl}/accept-invite?token=${inviteToken}">diesem Link</a> für die Registrierung.</p>
+            </div>
+            <div class="email-footer">
+              <p>Beste Grüße,</p>
+              <p>UltraLine Energy</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `,
     });
 
