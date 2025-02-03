@@ -12,9 +12,10 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col gap-8 p-4 md:p-6 mx-auto container">  
+    <div className="flex flex-col gap-8 p-4 md:p-6 mx-auto container">
       <div className="w-full flex justify-center">
-        <div className="relative overflow-hidden p-6 md:py-12 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white w-full max-w-4xl shadow-lg">
+        {/* Increased banner width from max-w-4xl to max-w-6xl */}
+        <div className="relative overflow-hidden p-6 md:py-12 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white w-full max-w shadow-lg">
           <div className="flex flex-col md:flex-row items-center justify-between">
             {/* Title and Description */}
             <div className="mb-4 md:mb-0">

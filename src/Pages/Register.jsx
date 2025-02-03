@@ -43,8 +43,7 @@ export default function Register() {
     }),
     onSubmit: (values) => {
       // Optionally, exclude confirmPassword before sending to the server
-      const { confirmPassword, ...signUpData } = values;
-      mutation.mutate(signUpData);
+      mutation.mutate(values);
     },
   });
 

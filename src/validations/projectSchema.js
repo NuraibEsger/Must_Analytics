@@ -6,7 +6,7 @@ export const projectSchema = Yup.object().shape({
     .max(50, "Name is too long!")
     .required("Project Name is required"),
 
-  labelId: Yup.array()
+  labels: Yup.array()
     .of(Yup.string().required("Label ID is required"))
     .min(1, "At least one label is required"),
 

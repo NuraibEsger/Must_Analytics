@@ -1,38 +1,33 @@
 import React, { useState } from "react";
-import { sendInvite } from "../services/projectService"; 
-import AlertModal from "./AlertModal"; // Import the new AlertModal
+import { sendInvite } from "../services/projectService";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function InviteModal({ onClose, projectId }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("visitor");
   const [isLoading, setIsLoading] = useState(false);
-  const [alertMessage, setAlertMessage] = useState("");
-  const [alertType, setAlertType] = useState(""); // "success" or "error"
-  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const handleInvite = async () => {
     try {
       setIsLoading(true);
-      
-      // Example: call your invite logic
       await sendInvite(projectId, { email, role });
-      // For now, we’ll just mock the behavior:
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Show success message
-      setAlertMessage(`Invite sent to ${email} as ${role}!`);
-      setAlertType("success");
-      setIsAlertOpen(true);
+      toast.success(`Invite sent to ${email} as ${role}!`, {
+        position: "top-right",
+        autoClose: 2000,
+      });
+
       setTimeout(() => {
         onClose();
-        setIsAlertOpen(false);
-      }, 2000); // Close after 2 seconds
+      }, 2000);
     } catch (error) {
       console.error("Error sending invite:", error);
-      // Show error message
-      setAlertMessage("Failed to send invite. Please try again.");
-      setAlertType("error");
-      setIsAlertOpen(true);
+      toast.error("Failed to send invite. Please try again.", {
+        position: "top-right",
+        autoClose: 2000,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -40,10 +35,16 @@ export default function InviteModal({ onClose, projectId }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+      <div
+        className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+        role="dialog"
+        aria-modal="true"
+      >
         <div className="bg-white p-6 rounded shadow-md w-full max-w-sm relative">
           <h2 className="text-xl font-bold mb-4">Invite to Project</h2>
-          
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">
               Email
@@ -56,7 +57,6 @@ export default function InviteModal({ onClose, projectId }) {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700">
               Role
@@ -70,8 +70,6 @@ export default function InviteModal({ onClose, projectId }) {
               <option value="editor">Editor</option>
             </select>
           </div>
-
-          {/* Actions */}
           <div className="flex justify-end space-x-2">
             <button
               onClick={onClose}
@@ -90,14 +88,8 @@ export default function InviteModal({ onClose, projectId }) {
         </div>
       </div>
 
-      {/* Show the AlertModal after the invite process */}
-      {isAlertOpen && (
-        <AlertModal
-          message={alertMessage}
-          onClose={() => setIsAlertOpen(false)}
-          type={alertType}
-        />
-      )}
+      {/* Toast Container to render toast notifications */}
+      <ToastContainer />
     </>
   );
 }

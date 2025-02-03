@@ -9,7 +9,9 @@ export default function Header() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const match = useMatch("/edit-image/:id");
+  const matchHome = useMatch("/");
   const isEditImagePage = Boolean(match);
+  const isHomePage = Boolean(matchHome);
 
   const { token, email } = useSelector((state) => state.account);
 
@@ -22,15 +24,22 @@ export default function Header() {
     <header className="py-4 px-6 shadow-md flex justify-between items-center">
       <div className="flex items-center gap-4">
         {/* Logo Section */}
-        <a href="https://www.musts.io/" target="_blank" rel="noopener noreferrer"><img src={logo} alt="Logo" className="h-14 w-auto" /></a>
-        
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-blue-600 hover:bg-blue-100 rounded-md font-medium"
+        <a
+          href="https://www.musts.io/"
+          target="_blank"
+          rel="noopener noreferrer"
         >
-          <FiHome />
-          Home
-        </button>
+          <img src={logo} alt="Logo" className="h-8 w-auto" />
+        </a>
+        {!isHomePage && (
+          <button
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 px-4 py-2  bg-gray-100 text-blue-600 hover:bg-blue-100 rounded-md font-medium"
+          >
+            <FiHome />
+            Home
+          </button>
+        )}
         {isEditImagePage && (
           <button
             onClick={() => navigate(-1)}

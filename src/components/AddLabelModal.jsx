@@ -1,18 +1,19 @@
-// src/components/AddLabelModal.jsx
-
 import React from "react";
 import { useLabelForm } from "../hooks/useLabelForm";
 import { neonColors } from "../utils/colorUtils";
+import { FiX } from "react-icons/fi";
 
-const AddLabelModal = ({
-  isOpen,
-  onClose,
-  toggleLabelModal,
-  projectId = null,
-}) => {
+const AddLabelModal = ({ isOpen, onClose, toggleLabelModal, projectId = null }) => {
   const { formik, isSubmitting } = useLabelForm(toggleLabelModal, projectId);
 
   if (!isOpen) return null;
+
+  // Close modal if click occurs on the overlay (outside the modal content)
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
 
   const handleNeonColorSelect = (color) => {
     formik.setFieldValue("color", color);
@@ -20,6 +21,8 @@ const AddLabelModal = ({
 
   return (
     <div
+      id="modal-overlay"
+      onClick={handleOverlayClick}
       className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
       style={{ zIndex: 1000 }}
     >
@@ -32,7 +35,7 @@ const AddLabelModal = ({
             onClick={onClose}
             aria-label="Close Modal"
           >
-            &times;
+            <FiX size={30} color="#b02a30" />
           </button>
         </div>
 
@@ -65,24 +68,24 @@ const AddLabelModal = ({
               Recommended Neon Colors
             </label>
             <div className="flex space-x-3 mb-4">
-              {neonColors.map((color) => (
-                <button
-                  type="button"
-                  key={color.hex}
-                  onClick={() => handleNeonColorSelect(color.hex)}
-                  className={`w-10 h-10 rounded-full border-2 focus:outline-none transition-transform transform ${
-                    formik.values.color === color.hex
-                      ? "border-indigo-600 scale-110"
-                      : "border-transparent hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: color.hex }}
-                  aria-label={`Select ${color.name}`}
-                >
-                  {formik.values.color === color.hex && (
-                    <span className="inline-block w-2 h-2 bg-white rounded-full"></span>
-                  )}
-                </button>
-              ))}
+              {neonColors.map((color) => {
+                const isSelected = formik.values.color === color.hex;
+                return (
+                  <button
+                    type="button"
+                    key={color.hex}
+                    onClick={() => handleNeonColorSelect(color.hex)}
+                    className={`w-10 h-10 rounded-full border-2 focus:outline-none transition-transform transform ${
+                      isSelected
+                        ? "border-indigo-600 scale-110 hover:shadow-xl" // When selected, add a shadow on hover.
+                        : "border-transparent hover:scale-105" // When not selected, use a scale effect.
+                    }`}
+                    style={{ backgroundColor: color.hex }}
+                    aria-label={`Select ${color.name}`}
+                  >
+                  </button>
+                );
+              })}
             </div>
           </div>
 

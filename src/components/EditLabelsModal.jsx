@@ -8,26 +8,22 @@ export default function EditLabelsModal({ isOpen, onClose }) {
   const queryClient = useQueryClient();
   const token = useSelector((state) => state.account.token);
 
-  // Fetch labels
   const { data, isLoading, isError } = useQuery(
     ["labels"],
     () => getLabels(token),
     {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 10, // 10 minutes
-      enabled: isOpen, // Only fetch if modal is open
+      staleTime: 1000 * 60 * 5,
+      cacheTime: 1000 * 60 * 10,
+      enabled: isOpen,
     }
   );
 
-  // Mutation for updating label
   const updateLabelMutation = useMutation(
     ({ labelId, name, color }) => updateLabel(labelId, { name, color }, token),
     {
       onMutate: async ({ labelId, name, color }) => {
         await queryClient.cancelQueries(["labels"]);
-
         const previousLabels = queryClient.getQueryData(["labels"]);
-
         queryClient.setQueryData(["labels"], (oldData) => {
           if (!oldData) return oldData;
           return {
@@ -37,7 +33,6 @@ export default function EditLabelsModal({ isOpen, onClose }) {
             ),
           };
         });
-
         return { previousLabels };
       },
       onError: (err, variables, context) => {
@@ -55,17 +50,14 @@ export default function EditLabelsModal({ isOpen, onClose }) {
     }
   );
 
-  // Local state to manage editable fields
   const [editableLabels, setEditableLabels] = useState([]);
 
-  // Initialize editableLabels when data is fetched
   React.useEffect(() => {
     if (data && data.data) {
       setEditableLabels(data.data);
     }
   }, [data]);
 
-  // Handle changes in label name
   const handleNameChange = (id, newName) => {
     setEditableLabels((prev) =>
       prev.map((label) =>
@@ -74,7 +66,6 @@ export default function EditLabelsModal({ isOpen, onClose }) {
     );
   };
 
-  // Handle changes in label color
   const handleColorChange = (id, newColor) => {
     setEditableLabels((prev) =>
       prev.map((label) =>
@@ -83,11 +74,13 @@ export default function EditLabelsModal({ isOpen, onClose }) {
     );
   };
 
-  // Handle save button click
   const handleSave = () => {
     editableLabels.forEach((label) => {
       const originalLabel = data.data.find((l) => l._id === label._id);
-      if (originalLabel.name !== label.name || originalLabel.color !== label.color) {
+      if (
+        originalLabel.name !== label.name ||
+        originalLabel.color !== label.color
+      ) {
         updateLabelMutation.mutate({
           labelId: label._id,
           name: label.name,
@@ -98,17 +91,14 @@ export default function EditLabelsModal({ isOpen, onClose }) {
     onClose();
   };
 
-  // If modal is not open, don't render anything
   if (!isOpen) return null;
 
-  // Loading state
   if (isLoading) {
     return (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="edit-labels-modal-title"
       >
         <div className="flex justify-center items-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
@@ -117,19 +107,15 @@ export default function EditLabelsModal({ isOpen, onClose }) {
     );
   }
 
-  // Error state
   if (isError) {
     return (
       <div
         className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="edit-labels-modal-title"
       >
         <div className="bg-white rounded-lg p-6 w-full max-w-lg" role="document">
-          <h2 id="edit-labels-modal-title" className="text-xl font-bold mb-4">
-            Edit Labels
-          </h2>
+          <h2 className="text-xl font-bold mb-4">Edit Labels</h2>
           <p className="text-red-500">Failed to load labels.</p>
           <button
             type="button"
@@ -146,6 +132,9 @@ export default function EditLabelsModal({ isOpen, onClose }) {
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 overflow-auto"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="edit-labels-modal-title"
@@ -154,7 +143,6 @@ export default function EditLabelsModal({ isOpen, onClose }) {
         <h2 id="edit-labels-modal-title" className="text-xl font-bold mb-4">
           Edit Labels
         </h2>
-
         <div className="space-y-4 max-h-80 overflow-y-auto">
           {editableLabels.map((label) => (
             <div key={label._id} className="flex items-center justify-between">
@@ -166,21 +154,24 @@ export default function EditLabelsModal({ isOpen, onClose }) {
                 <input
                   type="text"
                   value={label.name}
-                  onChange={(e) => handleNameChange(label._id, e.target.value)}
+                  onChange={(e) =>
+                    handleNameChange(label._id, e.target.value)
+                  }
                   className="px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring focus:border-blue-300"
                 />
               </div>
               <input
                 type="color"
                 value={label.color}
-                onChange={(e) => handleColorChange(label._id, e.target.value)}
+                onChange={(e) =>
+                  handleColorChange(label._id, e.target.value)
+                }
                 className="w-40 h-10 p-0 border-none cursor-pointer"
                 title="Choose label color"
               />
             </div>
           ))}
         </div>
-
         <div className="flex justify-end mt-6">
           <button
             type="button"

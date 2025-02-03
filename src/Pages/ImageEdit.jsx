@@ -23,7 +23,7 @@ import {
   saveAnnotations,
   updateAnnotationLabel,
   deleteAnnotation,
-  updateAnnotation, // ensure this is imported from your services
+  updateAnnotation,
 } from "../services/imageService";
 import { toast } from "react-toastify";
 import { ClipLoader } from "react-spinners";
@@ -415,7 +415,13 @@ export default function ImageEdit() {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (!isEditor) return;
-
+  
+      // Delete selected annotation on Backspace or Delete key
+      if (e.key === "Delete" && selectedAnnotationId) {
+        removeAnnotation(selectedAnnotationId);
+        return;
+      }
+  
       // If Esc key is pressed, cancel drawing and deselect
       if (e.key === "Escape") {
         setDrawingMode(""); // Cancel the drawing mode
@@ -428,7 +434,7 @@ export default function ImageEdit() {
         setSelectedAnnotationId(null); // Deselect any selected annotation
         return;
       }
-
+  
       // If 'S' key is pressed, toggle selection mode
       if (e.key.toLowerCase() === "s") {
         if (drawingMode) {
@@ -448,7 +454,7 @@ export default function ImageEdit() {
         });
         return;
       }
-
+  
       // For the 'F' key, toggle polygon drawing
       if (e.key.toLowerCase() === "f") {
         if (drawingMode === "polygon") {
@@ -469,7 +475,7 @@ export default function ImageEdit() {
         setIsSelecting(false); // Disable selection when drawing
         setSelectedAnnotationId(null); // Deselect any selected annotation
       }
-
+  
       // For the 'D' key, toggle rectangle drawing
       else if (e.key.toLowerCase() === "d") {
         if (drawingMode === "rectangle") {
@@ -486,7 +492,7 @@ export default function ImageEdit() {
         }
         setSelectedAnnotationId(null); // Deselect any selected annotation
       }
-
+  
       // Finalize the polygon when 'Enter' is pressed
       if (drawingMode === "polygon" && e.key === "Enter") {
         if (polygonPoints.length < 3) {
@@ -496,13 +502,19 @@ export default function ImageEdit() {
         finalizePolygon(); // Finalize the polygon drawing
       }
     };
-
+  
     // Add event listener for keydown
     window.addEventListener("keydown", handleKeyDown);
-
+  
     // Cleanup the event listener on component unmount
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isEditor, drawingMode, polygonPoints, finalizePolygon]);
+  }, [
+    isEditor,
+    drawingMode,
+    polygonPoints,
+    selectedAnnotationId, // ensure this dependency is added
+    finalizePolygon,
+  ]);
 
   const handleAnnotationClick = (annotationId) => {
     if (isSelecting && selectedAnnotationId !== annotationId) {
@@ -635,13 +647,27 @@ export default function ImageEdit() {
     if (!isEditor) return;
 
     if (newAnnotation && newAnnotation.type === "rectangle") {
-      // Ensure width and height are positive
+      
+      const rectX =
+        newAnnotation.width < 0
+          ? newAnnotation.x + newAnnotation.width
+          : newAnnotation.x;
+      const rectY =
+        newAnnotation.height < 0
+          ? newAnnotation.y + newAnnotation.height
+          : newAnnotation.y;
+      const rectWidth = Math.abs(newAnnotation.width);
+      const rectHeight = Math.abs(newAnnotation.height);
+
       const rect = {
         ...newAnnotation,
-        width: Math.abs(newAnnotation.width),
-        height: Math.abs(newAnnotation.height),
+        x: rectX,
+        y: rectY,
+        width: rectWidth,
+        height: rectHeight,
         label: getInitialLabel(),
       };
+      
       setAnnotations((prev) => [...prev, rect]);
       debouncedSave([rect]);
       setNewAnnotation(null);
@@ -711,9 +737,9 @@ export default function ImageEdit() {
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 5rem)" }}>
+    <div className="flex" style={{ height: "calc(100vh - 5.5em)", overflow: "hidden" }}>
       <LoadingBar
-        color="#4caf50" // green color
+        color="#4caf50"
         progress={progress}
         height={4}
         onLoaderFinished={() => setProgress(0)}
@@ -736,12 +762,14 @@ export default function ImageEdit() {
         <ul className="space-y-2">
           {annotations
             ?.filter((a) => a !== undefined && a !== null)
+            .slice()
+            .reverse()
             .map((annotation, idx) => (
               <li
                 key={`${annotation._id}-${idx}`}
                 className={`flex justify-between items-center bg-gray-50 p-3 rounded-lg shadow hover:bg-gray-100 cursor-pointer ${
                   selectedAnnotationId === annotation._id
-                    ? "bg-gray-500 ring-2"
+                    ? "bg-gray-300 ring-2"
                     : "bg-gray-50 hover:bg-gray-300"
                 }`}
                 onClick={() => {
@@ -1059,16 +1087,39 @@ export default function ImageEdit() {
                         const node = shapeRef.current;
                         if (!node) return;
 
+                        // Get current scaling factors and reset the node’s scale.
                         const scaleX = node.scaleX();
                         const scaleY = node.scaleY();
-                        // Reset the node's scale so that width/height reflect the actual dimensions.
                         node.scaleX(1);
                         node.scaleY(1);
 
-                        const newX = node.x();
-                        const newY = node.y();
-                        const newWidth = Math.max(5, node.width() * scaleX);
-                        const newHeight = Math.max(5, node.height() * scaleY);
+                        // Compute the new position and size.
+                        let newX = node.x();
+                        let newY = node.y();
+                        let newWidth = Math.max(5, node.width() * scaleX);
+                        let newHeight = Math.max(5, node.height() * scaleY);
+
+                        // --- Adjust width and x position ---
+                        // If the rectangle’s width is larger than the image width, force it to the image width.
+                        if (newWidth > imageDimensions.width) {
+                          newWidth = imageDimensions.width;
+                          newX = 0;
+                        }
+                        // Otherwise, if the rectangle goes off the right edge, shift it left.
+                        else if (newX + newWidth > imageDimensions.width) {
+                          newX = imageDimensions.width - newWidth;
+                        }
+
+                        // --- Adjust height and y position ---
+                        // If the rectangle’s height is larger than the image height, force it to the image height.
+                        if (newHeight > imageDimensions.height) {
+                          newHeight = imageDimensions.height;
+                          newY = 0;
+                        }
+                        // Otherwise, if the rectangle goes off the bottom edge, shift it upward.
+                        else if (newY + newHeight > imageDimensions.height) {
+                          newY = imageDimensions.height - newHeight;
+                        }
 
                         // Use enforceBoundaries to clamp the new x and y.
                         const { x: clampedX, y: clampedY } = enforceBoundaries(
@@ -1083,7 +1134,12 @@ export default function ImageEdit() {
                         node.position({ x: clampedX, y: clampedY });
 
                         // Build bbox array
-                        const newBbox = [clampedX, clampedY, newWidth, newHeight];
+                        const newBbox = [
+                          clampedX,
+                          clampedY,
+                          newWidth,
+                          newHeight,
+                        ];
 
                         // Create updated annotation (preserving _id)
                         const updatedAnnotation = { ...ann, bbox: newBbox };
@@ -1112,8 +1168,10 @@ export default function ImageEdit() {
                         draggable
                         onDragMove={(e) => {
                           e.cancelBubble = true;
-                          const dx = e.target.x() - (x + width / 2 - 16);
-                          const dy = e.target.y() - (y + height / 2 - 16);
+                          const iconInitialX = x + width / 2 - 16;
+                          const iconInitialY = y + height / 2 - 16;
+                          const dx = e.target.x() - iconInitialX;
+                          const dy = e.target.y() - iconInitialY;
 
                           // Enforce boundaries
                           const { x: newX, y: newY } = enforceBoundaries(
@@ -1138,8 +1196,10 @@ export default function ImageEdit() {
                         }}
                         onDragEnd={(e) => {
                           e.cancelBubble = true;
-                          const dx = e.target.x() - (x + width / 2 - 16);
-                          const dy = e.target.y() - (y + height / 2 - 16);
+                          const iconInitialX = x + width / 2 - 16;
+                          const iconInitialY = y + height / 2 - 16;
+                          const dx = e.target.x() - iconInitialX;
+                          const dy = e.target.y() - iconInitialY;
 
                           // Enforce boundaries
                           const { x: newX, y: newY } = enforceBoundaries(
@@ -1156,6 +1216,8 @@ export default function ImageEdit() {
                             y: newY,
                             bbox: [newX, newY, width, height],
                           };
+
+                          e.target.position({ x: newX + width / 2 - 16, y: newY + height / 2 - 16 });
                           
                           debouncedUpdateAnnotation({
                             annotationId: ann._id,
@@ -1201,7 +1263,6 @@ export default function ImageEdit() {
                 }
 
                 if (!flatPoints.every((p) => typeof p === "number")) {
-                  console.error("Invalid points in annotation:", flatPoints);
                   return null;
                 }
 
@@ -1254,50 +1315,109 @@ export default function ImageEdit() {
                     />
                     {selectedAnnotationId === ann._id && fingerIcon && (
                       <KonvaImage
-                      image={fingerIcon}
-                      x={centroid[0] - 16}
-                      y={centroid[1] - 16}
-                      width={32}
-                      height={32}
-                      draggable
-                      onDragMove={(e) => {
-                        e.cancelBubble = true;
-                        const dx = e.target.x() - (centroid[0] - 16);
-                        const dy = e.target.y() - (centroid[1] - 16);
-                        
-                        // Update all points with the same offset.
-                        // For each new coordinate, clamp within the image boundaries.
-                        const newCoords = flatPoints.map((value, index) => {
-                          if (index % 2 === 0) {
-                            // X coordinate.
-                            const newX = value + dx;
-                            return Math.max(0, Math.min(newX, imageDimensions.width));
-                          } else {
-                            // Y coordinate.
-                            const newY = value + dy;
-                            return Math.max(0, Math.min(newY, imageDimensions.height));
+                        image={fingerIcon}
+                        x={centroid[0] - 16}
+                        y={centroid[1] - 16}
+                        width={32}
+                        height={32}
+                        draggable
+                        onDragMove={(e) => {
+                          e.cancelBubble = true;
+                          // Determine the intended offset from the original icon position.
+                          const iconInitialX = centroid[0] - 16;
+                          const iconInitialY = centroid[1] - 16;
+                          let dx = e.target.x() - iconInitialX;
+                          let dy = e.target.y() - iconInitialY;
+                    
+                          // Compute the bounding box of the polygon.
+                          const xs = [];
+                          const ys = [];
+                          for (let i = 0; i < flatPoints.length; i += 2) {
+                            xs.push(flatPoints[i]);
+                            ys.push(flatPoints[i + 1]);
                           }
-                        });
-                        
-                        const updatedAnnotation = {
-                          ...ann,
-                          coordinates: newCoords,
-                        };
-                        
-                        setAnnotations((prev) =>
-                          prev.map((a) =>
-                            a && a._id === ann._id ? updatedAnnotation : a
-                          )
-                        );
-                      }}
-                      onDragEnd={(e) => {
-                        e.cancelBubble = true;
-                        debouncedUpdateAnnotation({
-                          annotationId: ann._id,
-                          data: { coordinates: ann.coordinates }, // Use the updated coordinates
-                        });
-                      }}
-                    />
+                          const minX = Math.min(...xs);
+                          const maxX = Math.max(...xs);
+                          const minY = Math.min(...ys);
+                          const maxY = Math.max(...ys);
+                    
+                          // Adjust the offset if any vertex would go out of bounds.
+                          if (minX + dx < 0) dx = -minX;
+                          if (maxX + dx > imageDimensions.width)
+                            dx = imageDimensions.width - maxX;
+                          if (minY + dy < 0) dy = -minY;
+                          if (maxY + dy > imageDimensions.height)
+                            dy = imageDimensions.height - maxY;
+                    
+                          // Apply the (possibly adjusted) offset to all points.
+                          const newCoords = flatPoints.map((value, index) =>
+                            index % 2 === 0 ? value + dx : value + dy
+                          );
+                    
+                          // Update the annotation state optimistically.
+                          const updatedAnnotation = {
+                            ...ann,
+                            coordinates: newCoords,
+                          };
+                          setAnnotations((prev) =>
+                            prev.map((a) => (a && a._id === ann._id ? updatedAnnotation : a))
+                          );
+                        }}
+                        onDragEnd={(e) => {
+                          e.cancelBubble = true;
+                          // Recalculate the intended offset from the original icon position.
+                          const iconInitialX = centroid[0] - 16;
+                          const iconInitialY = centroid[1] - 16;
+                          let dx = e.target.x() - iconInitialX;
+                          let dy = e.target.y() - iconInitialY;
+                    
+                          // Compute the polygon's bounding box.
+                          const xs = [];
+                          const ys = [];
+                          for (let i = 0; i < flatPoints.length; i += 2) {
+                            xs.push(flatPoints[i]);
+                            ys.push(flatPoints[i + 1]);
+                          }
+                          const minX = Math.min(...xs);
+                          const maxX = Math.max(...xs);
+                          const minY = Math.min(...ys);
+                          const maxY = Math.max(...ys);
+                    
+                          // Adjust dx/dy so that the entire polygon remains in bounds.
+                          if (minX + dx < 0) dx = -minX;
+                          if (maxX + dx > imageDimensions.width)
+                            dx = imageDimensions.width - maxX;
+                          if (minY + dy < 0) dy = -minY;
+                          if (maxY + dy > imageDimensions.height)
+                            dy = imageDimensions.height - maxY;
+                    
+                          // Compute the new polygon coordinates with the adjusted offset.
+                          const newCoords = flatPoints.map((value, index) =>
+                            index % 2 === 0 ? value + dx : value + dy
+                          );
+                    
+                          // Optionally, recalc the new centroid (for snapping the icon).
+                          const newControlPoints = [];
+                          for (let i = 0; i < newCoords.length; i += 2) {
+                            newControlPoints.push([newCoords[i], newCoords[i + 1]]);
+                          }
+                          const newCentroid = newControlPoints.reduce(
+                            (acc, pt) => [acc[0] + pt[0], acc[1] + pt[1]],
+                            [0, 0]
+                          );
+                          newCentroid[0] /= newControlPoints.length;
+                          newCentroid[1] /= newControlPoints.length;
+                    
+                          // Snap the finger icon back into a valid position.
+                          e.target.position({ x: newCentroid[0] - 16, y: newCentroid[1] - 16 });
+                    
+                          // Finally, update the annotation (e.g. via a debounced update).
+                          debouncedUpdateAnnotation({
+                            annotationId: ann._id,
+                            data: { coordinates: newCoords },
+                          });
+                        }}
+                      />
                     )}
                     {selectedAnnotationId === ann._id &&
                       controlPoints.map((pt, index) => (
@@ -1312,18 +1432,24 @@ export default function ImageEdit() {
                           onDragMove={(e) => {
                             e.cancelBubble = true;
                             // Clamp the new point's coordinates
-                            const newX = Math.max(0, Math.min(e.target.x(), imageDimensions.width));
-                            const newY = Math.max(0, Math.min(e.target.y(), imageDimensions.height));
-                            
+                            const newX = Math.max(
+                              0,
+                              Math.min(e.target.x(), imageDimensions.width)
+                            );
+                            const newY = Math.max(
+                              0,
+                              Math.min(e.target.y(), imageDimensions.height)
+                            );
+
                             // Update the control point immediately
-                            const newControlPoints = controlPoints.map((p, idx) =>
-                              idx === index ? [newX, newY] : p
+                            const newControlPoints = controlPoints.map(
+                              (p, idx) => (idx === index ? [newX, newY] : p)
                             );
                             const newFlatPoints = newControlPoints.reduce(
                               (acc, p) => acc.concat(p),
                               []
                             );
-                            
+
                             // Optimistically update local state for a smooth UI
                             const optimisticAnnotation = {
                               ...ann,
@@ -1331,36 +1457,49 @@ export default function ImageEdit() {
                             };
                             setAnnotations((prev) =>
                               prev.map((a) =>
-                                a && a._id === ann._id ? optimisticAnnotation : a
+                                a && a._id === ann._id
+                                  ? optimisticAnnotation
+                                  : a
                               )
                             );
                           }}
                           onDragEnd={(e) => {
                             e.cancelBubble = true;
-                            // Clamp on drag end as well
-                            const newX = Math.max(0, Math.min(e.target.x(), imageDimensions.width));
-                            const newY = Math.max(0, Math.min(e.target.y(), imageDimensions.height));
-                            
-                            const newControlPoints = controlPoints.map((p, idx) =>
-                              idx === index ? [newX, newY] : p
+                            // Clamp the new coordinates within the image boundaries.
+                            const newX = Math.max(
+                              0,
+                              Math.min(e.target.x(), imageDimensions.width)
+                            );
+                            const newY = Math.max(
+                              0,
+                              Math.min(e.target.y(), imageDimensions.height)
+                            );
+
+                            // Snap the circle back to the clamped coordinates.
+                            e.target.position({ x: newX, y: newY });
+
+                            // Update the control points array with the clamped value.
+                            const newControlPoints = controlPoints.map(
+                              (p, idx) => (idx === index ? [newX, newY] : p)
                             );
                             const newFlatPoints = newControlPoints.reduce(
                               (acc, p) => acc.concat(p),
                               []
                             );
-                            
-                            // Update the annotation with clamped values
+
+                            // Update the annotation with the new (clamped) coordinates.
                             const updatedAnnotation = {
                               ...ann,
                               coordinates: newFlatPoints,
                             };
-                            
+
                             setAnnotations((prev) =>
                               prev.map((a) =>
                                 a && a._id === ann._id ? updatedAnnotation : a
                               )
                             );
-                            
+
+                            // Optionally debounce the update to your backend.
                             debouncedUpdateAnnotation({
                               annotationId: ann._id,
                               data: { coordinates: newFlatPoints },

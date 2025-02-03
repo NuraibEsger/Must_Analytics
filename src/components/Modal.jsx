@@ -1,4 +1,4 @@
-import { useState } from "react";
+import {   useState } from "react";
 import { useProjectForm } from "../hooks/useProjectForm";
 import AddLabelModal from "./AddLabelModal";
 import { useQuery } from "react-query";
@@ -93,6 +93,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
   const handleCustomFileChange = (e) => {
     const files = e.target.files;
     setSelectedFiles(Array.from(files));
+    formik.setFieldTouched("files", true);
     handleFileChange(e);
   };
 
@@ -103,7 +104,14 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) toggleModal();
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="bg-white rounded-lg p-6 w-full max-w-lg">
         <h2 className="text-xl font-bold mb-4">
           {initialData ? "Edit Project" : "Add New Project"}
@@ -154,6 +162,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
                 type="file"
                 multiple
                 onChange={handleCustomFileChange}
+                onBlur={formik.handleBlur}
                 className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer"
               />
               <div className="border h-10 border-gray-300 rounded-md px-4 py-2 flex items-center justify-center cursor-pointer">
@@ -184,7 +193,7 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               <span className="text-red-500">{formik.errors.files}</span>
             )}
           </div>
-          
+
           <label className="block text-gray-700 font-bold mb-2">Labels</label>
           <div className="mb-4 flex items-center">
             <div className="flex-1">
@@ -233,7 +242,6 @@ export default function Modal({ isOpen, toggleModal, initialData }) {
               <span className="font-medium">Edit Labels</span>
             </button>
           </div>
-
 
           <div className="flex justify-between">
             <button

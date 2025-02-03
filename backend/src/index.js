@@ -10,7 +10,6 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
-const { model } = require("mongoose");
 require("dotenv").config();
 const frontUrl = process.env.FRONT_END_URL;
 
@@ -125,7 +124,9 @@ app.get("/projects", verifyToken, async (req, res) => {
 
     const projects = await Project.find({
       "members.email": userEmail, // user is any role, if you want 'editor' only you can add "members.role": "editor"
-    }).populate("images");
+    })
+      .populate("images")
+      .populate("labels");
 
     res.json(projects);
   } catch (error) {
