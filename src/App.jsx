@@ -3,7 +3,6 @@ import Root from "./layout/Root";
 import Home from "./Pages/Home";
 import { QueryClientProvider } from "react-query";
 import { queryClient } from "./utils/httpClient";
-import ProjectDetail from "./Pages/ProjectDetail";
 import Login from "./Pages/Login";
 import Register from "./Pages/Register";
 import ProtectedRoute from "./Pages/ProtectedRoute";
@@ -13,6 +12,9 @@ import NotFound from "./Pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AcceptInvite from "./components/AcceptInvite";
 import ImageEdit from "./Pages/ImageEdit";
+import { lazy, Suspense } from "react";
+
+const ProjectDetail = lazy(() => import("./Pages/ProjectDetail"));
 
 const router = createBrowserRouter([
   {
@@ -40,7 +42,9 @@ const router = createBrowserRouter([
         path: "/project/:id/",
         element: (
           <ProtectedRoute>
-            <ProjectDetail />
+            <Suspense fallback={<div>Loading...</div>}>
+              <ProjectDetail />
+            </Suspense>
           </ProtectedRoute>
         ),
       },
@@ -48,7 +52,7 @@ const router = createBrowserRouter([
         path: "/edit-image/:id",
         element: (
           <ProtectedRoute>
-              <ImageEdit />
+            <ImageEdit />
           </ProtectedRoute>
         ),
       },
@@ -58,7 +62,7 @@ const router = createBrowserRouter([
           <ProtectedRoute>
             <AcceptInvite />
           </ProtectedRoute>
-        )
+        ),
       },
       {
         path: "*",

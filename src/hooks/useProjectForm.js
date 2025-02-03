@@ -25,8 +25,6 @@ export const useProjectForm = (toggleModal, initialData) => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(["ProjectImages", projectId]);
-      queryClient.invalidateQueries(["ProjectDetail", projectId]);
       queryClient.invalidateQueries(["Projects"]);
       toggleModal();
     },
