@@ -121,3 +121,7 @@ export const sendInvite  = async (projectId, { email, role }, token) => {
 export const acceptInvite = async (token) => {
   return httpClient.post(`/project/accept-invite`, {token});
 }
+
+export const updateProjectMemberRole = async ({ projectId, email, role }, token) => {
+  return httpClient.put(`/project/${projectId}/members`, { email, role }, authHeaders(token));
+}

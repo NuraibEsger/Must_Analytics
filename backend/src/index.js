@@ -323,6 +323,10 @@ app.get("/project/:id", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "Project not found" });
     }
 
+    const isOwner = project.members.some(
+      (m) => m.email === requestingUserEmail && m.role === "owner"
+    );
+
     const isEditor = project.members.some(
       (m) => m.email === requestingUserEmail && m.role === "editor"
     );
@@ -330,7 +334,7 @@ app.get("/project/:id", verifyToken, async (req, res) => {
       (m) => m.email === requestingUserEmail && m.role === "visitor"
     );
 
-    if (!isEditor && !isVisitor) {
+    if (!isEditor && !isVisitor && !isOwner) {
       return res.status(403).json({
         message: "You do not have permission to view this project.",
       });
@@ -1078,8 +1082,6 @@ app.post("/project/:projectId/invite", async (req, res) => {
       { expiresIn: "7d" } // token expires in 7 days
     );
 
-    const inviteLink = `${frontUrl}/accept-invite?token=${inviteToken}`;
-
     // 3. Send email using nodemailer (SMTP)
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -1218,6 +1220,44 @@ app.post("/project/accept-invite", async (req, res) => {
     return res.status(400).json({ message: "Invalid or expired invite link." });
   }
 });
+
+app.put("/project/:projectId/members", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { email, role } = req.body;
+
+    const validRoles = ["editor", "visitor"];
+
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({
+        message: "Invalid role provided. Only 'visitor' and 'editor' roles are allowed.",
+      });
+    }
+
+    const project = await Project.findById(projectId);
+
+    if (!project) {
+      return res.status(404).json({ message: "Project not found." });
+    }
+
+    const member = project.members.find((m) => m.email === email);
+    if (!member) {
+      return res.status(404).json({ message: "Member not found in the project." });
+    }
+
+    if (member.role === "owner") {
+      return res.status(400).json({ message: "Owner's role cannot be updated." });
+    }
+
+    member.role = role;
+
+    await project.save();
+
+    return res.status(202).json({ message: "Member role updated successfully.", project });
+  } catch (err) {
+    return res.status(500).json({ message: "Error updating member role." });
+  }
+})
 
 //#endregion
 

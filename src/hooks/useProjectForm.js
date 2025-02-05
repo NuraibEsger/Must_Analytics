@@ -44,7 +44,7 @@ export const useProjectForm = (toggleModal, initialData) => {
       members: [
         {
           email: email,  // The logged-in user's email
-          role: "editor" // Default role for creator
+          role: projectId ? "editor" : "owner" // Default role for creator
         }
       ],
       files: [],

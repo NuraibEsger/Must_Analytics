@@ -1,4 +1,3 @@
-// src/Pages/ProjectDetail.jsx
 import React, { useState, useRef, useCallback, useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useInfiniteQuery, useQueryClient } from "react-query";
@@ -62,6 +61,8 @@ export default function ProjectDetail() {
   const [activeMenu, setActiveMenu] = useState("Filter");
 
   const token = useSelector((state) => state.account.token);
+  const currentUserEmail = useSelector((state) => state.account.email);
+
   const backendUrl = process.env.REACT_APP_BACKEND_URL;
 
   // State for Confirmation Modals
@@ -392,6 +393,12 @@ export default function ProjectDetail() {
     );
   }
 
+  const currentUserMember = project.data.members?.find(
+    (member) => member.email === currentUserEmail
+  );
+
+  const currentUserRole = currentUserMember ? currentUserMember.role : "visitor";
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Header or Top Bar can be added here if needed */}
@@ -412,21 +419,27 @@ export default function ProjectDetail() {
           {/* Buttons Section */}
           <div className="flex justify-start items-center sticky top-0 bg-white z-10 py-2">
             <div className="flex gap-3">
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={() => setIsInviteModalOpen(true)}
-              >
-                <FiPlus />
-                Invite
-              </button>
+              {/* Invite Button: Only visible to Owners */}
+              {currentUserRole === "owner" && (
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                  onClick={() => setIsInviteModalOpen(true)}
+                  aria-label="Invite Members"
+                >
+                  <FiPlus />
+                  Invite
+                </button>
+              )}
 
-              {isInviteModalOpen && (
+              {/* Render InviteModal only if open and user is owner */}
+              {currentUserRole === "owner" && isInviteModalOpen && (
                 <InviteModal
                   projectId={projectId}
                   onClose={() => setIsInviteModalOpen(false)}
                 />
               )}
 
+              {/* Export Button: Visible to all roles */}
               <button
                 className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
                 onClick={handleExport}
@@ -435,32 +448,46 @@ export default function ProjectDetail() {
                 <FiDownload />
                 Export
               </button>
-              <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
-                <FiUpload />
-                {isUploading ? "Uploading..." : "Upload Data"}
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={handleEdit}
-                aria-label="Edit Project"
-              >
-                <FiEdit />
-                Edit Project
-              </button>
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
-                onClick={handleRemove}
-                aria-label="Remove Project"
-              >
-                <FiTrash />
-                Remove
-              </button>
+
+              {/* Upload Data Button: Only visible to Owner and Editor */}
+              {(currentUserRole === "owner" ||
+                currentUserRole === "editor") && (
+                <label className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200 cursor-pointer">
+                  <FiUpload />
+                  {isUploading ? "Uploading..." : "Upload Data"}
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
+
+              {/* Edit Project Button: Only visible to Owner and Editor */}
+              {(currentUserRole === "owner" ||
+                currentUserRole === "editor") && (
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md hover:from-purple-600 hover:to-pink-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                  onClick={handleEdit}
+                  aria-label="Edit Project"
+                >
+                  <FiEdit />
+                  Edit Project
+                </button>
+              )}
+
+              {/* Remove Project Button: Only visible to Owners */}
+              {currentUserRole === "owner" && (
+                <button
+                  className="flex items-center gap-2 px-4 py-2 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-md hover:from-red-600 hover:to-orange-600 hover:shadow-lg transform hover:scale-105 transition-all duration-200"
+                  onClick={handleRemove}
+                  aria-label="Remove Project"
+                >
+                  <FiTrash />
+                  Remove
+                </button>
+              )}
             </div>
           </div>
 
@@ -473,7 +500,8 @@ export default function ProjectDetail() {
           >
             {allImages.map((image, index) => {
               const isLast = index === allImages.length - 1;
-              const isLabeled = image.annotations && image.annotations.length > 0;
+              const isLabeled =
+                image.annotations && image.annotations.length > 0;
 
               return (
                 <div
@@ -556,7 +584,9 @@ export default function ProjectDetail() {
           {/* Handle Error While Loading Images */}
           {imagesError && (
             <div className="flex flex-col justify-center items-center py-4">
-              <p className="text-red-600 font-semibold">Error loading images:</p>
+              <p className="text-red-600 font-semibold">
+                Error loading images:
+              </p>
               <p className="text-sm text-gray-700 mt-2">
                 {imagesErrorData?.message || "Please try again."}
               </p>
@@ -646,10 +676,15 @@ export default function ProjectDetail() {
                     </div>
                     {/* Label Usage Counts */}
                     <div className="w-full">
-                      <h4 className="text-md font-semibold mb-2">Label Usage</h4>
+                      <h4 className="text-md font-semibold mb-2">
+                        Label Usage
+                      </h4>
                       <ul>
                         {Object.values(labelUsageCounts).map((label) => (
-                          <li key={label._id} className="flex items-center mb-1">
+                          <li
+                            key={label._id}
+                            className="flex items-center mb-1"
+                          >
                             <span
                               className="w-3 h-3 rounded-full mr-2"
                               style={{ backgroundColor: label.color }}

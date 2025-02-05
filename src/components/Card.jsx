@@ -1,11 +1,21 @@
-// src/components/Card.jsx
-
 import React from "react";
 import { useQuery } from "react-query";
 import { getProjects } from "../services/projectService";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LazyImage from "./LazyImage";
+
+// Helper function to extract initials from an email address.
+const getInitials = (email) => {
+  if (!email) return "";
+  const namePart = email.split("@")[0];
+  const parts = namePart.split(".");
+  if (parts.length > 1) {
+    return parts.map((part) => part.charAt(0).toUpperCase()).join('');
+  } else {
+    return namePart.substring(0, 2).toUpperCase();
+  }
+};
 
 const Card = () => {
   const token = useSelector((state) => state.account.token);
@@ -56,6 +66,10 @@ const Card = () => {
           year: "numeric",
         });
 
+        // Get the project owner from the members array.
+        const owner =
+          project.members && project.members.find((m) => m.role === "owner");
+
         return (
           <div key={project._id} className="flex justify-center">
             <Link to={`/project/${project._id}`} className="w-full">
@@ -98,7 +112,20 @@ const Card = () => {
                     </div>
                   </div>
                 )}
-
+                {/* Render Owner */}
+                {owner && (
+                  <div className="flex items-center mt-2">
+                    <div className="relative group">
+                      <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
+                        {getInitials(owner.email)}
+                      </div>
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-800 text-white text-xs px-2 py-1 rounded">
+                        {owner.email}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-500 ml-2">Owner</span>
+                  </div>
+                )}
                 <hr />
                 <p className="text-xs text-gray-500 mt-2">
                   Created: {formattedDate}

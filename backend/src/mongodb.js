@@ -97,7 +97,7 @@ const ProjectSchema = new mongoose.Schema({
   members: [
     {
       email: { type: String },
-      role: { type: String, enum: ['editor', 'visitor'] },
+      role: { type: String, enum: ['editor', 'visitor', 'owner'], default: 'visitor' },
     },
   ],
   created_at: { type: Date, required: true, default: Date.now },

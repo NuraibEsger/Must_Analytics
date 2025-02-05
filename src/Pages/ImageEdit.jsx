@@ -1,4 +1,3 @@
-// ImageEdit.jsx
 import React, {
   useState,
   useRef,
@@ -165,7 +164,7 @@ export default function ImageEdit() {
         const foundMember = data.members.find(
           (m) => m.email === currentUserEmail
         );
-        if (foundMember?.role === "editor") {
+        if (foundMember?.role === "editor" || foundMember?.role === "owner") {
           setIsEditor(true);
         }
       }
