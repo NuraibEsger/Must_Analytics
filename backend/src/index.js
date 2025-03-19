@@ -10,10 +10,10 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const sharp = require("sharp");
 const nodemailer = require("nodemailer");
-require("dotenv").config();
-const frontUrl = process.env.FRONT_END_URL;
 
 const JWT_SECRET = "your_jwt_secretthisissecrettrustme"; // Replace with a secure secret key for your JWT
+
+const frontUrl = "http://localhost:3000";
 
 const app = express();
 app.use((req, res, next) => {
@@ -1019,7 +1019,7 @@ app.post("/login", async (req, res) => {
       .json({ message: "Login successful", token, email: user.email });
   } catch (error) {
     console.error("Login error: ", error);
-    res.status(500).json({ message: "Login failed", error });
+    res.status(500).json({ message: "Login failed", error }, error.message);
   }
 });
 
