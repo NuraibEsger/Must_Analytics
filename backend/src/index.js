@@ -206,32 +206,21 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
           if (ann.type === "rectangle") {
             // First, try to use the stored bbox (if available and valid).
             const x =
-              ann.bbox && ann.bbox[0] !== undefined
-                ? ann.bbox[0]
-                : ann.x;
+              ann.bbox && ann.bbox[0] !== undefined ? ann.bbox[0] : ann.x;
             const y =
-              ann.bbox && ann.bbox[1] !== undefined
-                ? ann.bbox[1]
-                : ann.y;
+              ann.bbox && ann.bbox[1] !== undefined ? ann.bbox[1] : ann.y;
             const width =
-              ann.bbox && ann.bbox[2] !== undefined
-                ? ann.bbox[2]
-                : ann.width;
+              ann.bbox && ann.bbox[2] !== undefined ? ann.bbox[2] : ann.width;
             const height =
-              ann.bbox && ann.bbox[3] !== undefined
-                ? ann.bbox[3]
-                : ann.height;
+              ann.bbox && ann.bbox[3] !== undefined ? ann.bbox[3] : ann.height;
 
             if (x != null && y != null && width != null && height != null) {
               bbox = [x, y, width, height];
               area = width * height;
               // Create a rectangular segmentation (four corners).
-              segmentation = [[
-                x, y,
-                x + width, y,
-                x + width, y + height,
-                x, y + height
-              ]];
+              segmentation = [
+                [x, y, x + width, y, x + width, y + height, x, y + height],
+              ];
             }
           } else if (ann.type === "polygon") {
             // Process polygon: ensure segmentation is an array of arrays.
@@ -294,8 +283,6 @@ app.get("/projects/:id/export", verifyToken, async (req, res) => {
   }
 });
 
-
-
 // GET /project/:id
 app.get("/project/:id", verifyToken, async (req, res) => {
   try {
@@ -312,10 +299,10 @@ app.get("/project/:id", verifyToken, async (req, res) => {
       .select("name description labels members") // Select necessary fields
       .populate({
         path: "images",
-        populate: { 
-          path: "annotations", 
-          populate: { path: "label" } // Populate label within annotations
-        }
+        populate: {
+          path: "annotations",
+          populate: { path: "label" }, // Populate label within annotations
+        },
       })
       .populate("labels"); // Populate labels if necessary
 
@@ -627,44 +614,53 @@ app.delete("/projects/:id", verifyToken, async (req, res) => {
   }
 });
 
-app.delete("/project/:projectId/image/:imageId", verifyToken, async (req, res) => {
-  const { projectId, imageId } = req.params;
-  try {
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: "Project not found" });
+app.delete(
+  "/project/:projectId/image/:imageId",
+  verifyToken,
+  async (req, res) => {
+    const { projectId, imageId } = req.params;
+    try {
+      const project = await Project.findById(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Remove the image from the project's images array
+      const updatedProject = await Project.findByIdAndUpdate(
+        projectId,
+        { $pull: { images: imageId } },
+        { new: true }
+      );
+
+      // Delete the image from the Image collection
+      const image = await Image.findById(imageId);
+      if (!image) {
+        return res.status(404).json({ message: "Image not found." });
+      }
+
+      if (!project.images.includes(image._id)) {
+        return res
+          .status(400)
+          .json({ message: "Image does not belong to the specified project." });
+      }
+
+      await Annotation.deleteMany({ image: image._id });
+
+      project.images.pull(image._id);
+      await project.save();
+
+      await Image.findByIdAndDelete(image._id);
+
+      res.json({
+        message: "Image deleted successfully",
+        project: updatedProject,
+      });
+    } catch (error) {
+      console.error("Error deleting image:", error);
+      res.status(500).json({ message: "Error deleting image", error });
     }
-
-    // Remove the image from the project's images array
-    const updatedProject = await Project.findByIdAndUpdate(
-      projectId,
-      { $pull: { images: imageId } },
-      { new: true }
-    );
-
-    // Delete the image from the Image collection
-    const image = await Image.findById(imageId);
-    if (!image) {
-      return res.status(404).json({ message: "Image not found." });
-    }
-
-    if (!project.images.includes(image._id)) {
-      return res.status(400).json({ message: "Image does not belong to the specified project." });
-    }
-
-    await Annotation.deleteMany({ image: image._id });
-
-    project.images.pull(image._id);
-    await project.save();
-
-    await Image.findByIdAndDelete(image._id);
-
-    res.json({ message: "Image deleted successfully", project: updatedProject });
-  } catch (error) {
-    console.error("Error deleting image:", error);
-    res.status(500).json({ message: "Error deleting image", error });
   }
-});
+);
 
 // Update an existing project
 app.put(
@@ -706,8 +702,7 @@ app.put(
         newLabelIds = await Promise.all(
           labelArray.map(async (labelId) => {
             const label = await Label.findById(labelId);
-            if (!label)
-              throw new Error(`Label with ID ${labelId} not found`);
+            if (!label) throw new Error(`Label with ID ${labelId} not found`);
             return label._id.toString();
           })
         );
@@ -922,15 +917,19 @@ app.patch("/annotations/:id", async (req, res) => {
   try {
     const { id } = req.params;
     // Use $set to update only the provided fields.
-    const updateData = req.body ;
+    const updateData = req.body;
 
     // The { new: true } option returns the updated document.
-    const updatedAnnotation = await Annotation.findByIdAndUpdate(id, updateData, { new: true });
-    
+    const updatedAnnotation = await Annotation.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
     if (!updatedAnnotation) {
       return res.status(404).json({ message: "Annotation not found" });
     }
-    
+
     res.json({ annotation: updatedAnnotation });
   } catch (error) {
     console.error("Error updating annotation:", error);
@@ -1221,6 +1220,106 @@ app.post("/project/accept-invite", async (req, res) => {
   }
 });
 
+app.post("/forgot-password", async (req, res) => {
+  try {
+    // Validate the request body
+    const { email } = req.body;
+    if (typeof email !== "string") {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    // Check if user exists
+    const user = await User.findOne({ email: email.trim() });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create a password reset token that expires in 1 hour
+    const resetToken = jwt.sign(
+      { id: user._id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Send email using nodemailer (SMTP)
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: "nurayib.esger@gmail.com",
+        pass: "blhwtyuhkaidqpck", // In production, use environment variables
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Password Reset" <nurayib.esger@gmail.com>`,
+      to: email,
+      subject: "Password Reset Request",
+      text: `Hello,
+
+You have requested to reset your password. Please use the link below to set a new password:
+${frontUrl}/reset-password?token=${resetToken}
+
+If you did not request this, please ignore this email.
+
+Thank you.`,
+      html: `
+        <html>
+          <body>
+            <p>Hello,</p>
+            <p>You have requested to reset your password. Please click the link below to set a new password:</p>
+            <p><a href="${frontUrl}/reset-password?token=${resetToken}">Reset Password</a></p>
+            <p>If you did not request this, please ignore this email.</p>
+            <p>Thank you.</p>
+          </body>
+        </html>
+      `,
+    });
+
+    return res
+      .status(200)
+      .json({ message: "Password reset link sent successfully." });
+  } catch (error) {
+    console.error("Forgot password error: ", error);
+    res
+      .status(500)
+      .json({ message: "Failed to process password reset request." });
+  }
+});
+
+app.post("/reset-password", async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    // Check if passwords match
+    if (password !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
+    }
+
+    // Verify the token and extract payload data
+    const payload = jwt.verify(token, JWT_SECRET);
+
+    // Find the user based on the payload id
+    const user = await User.findById(payload.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+
+    // Save the updated user
+    await user.save();
+
+    return res.status(200).json({ message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(400).json({ message: "Invalid or expired token" });
+  }
+});
+
 app.put("/project/:projectId/members", async (req, res) => {
   try {
     const { projectId } = req.params;
@@ -1230,7 +1329,8 @@ app.put("/project/:projectId/members", async (req, res) => {
 
     if (!validRoles.includes(role)) {
       return res.status(400).json({
-        message: "Invalid role provided. Only 'visitor' and 'editor' roles are allowed.",
+        message:
+          "Invalid role provided. Only 'visitor' and 'editor' roles are allowed.",
       });
     }
 
@@ -1242,22 +1342,28 @@ app.put("/project/:projectId/members", async (req, res) => {
 
     const member = project.members.find((m) => m.email === email);
     if (!member) {
-      return res.status(404).json({ message: "Member not found in the project." });
+      return res
+        .status(404)
+        .json({ message: "Member not found in the project." });
     }
 
     if (member.role === "owner") {
-      return res.status(400).json({ message: "Owner's role cannot be updated." });
+      return res
+        .status(400)
+        .json({ message: "Owner's role cannot be updated." });
     }
 
     member.role = role;
 
     await project.save();
 
-    return res.status(202).json({ message: "Member role updated successfully.", project });
+    return res
+      .status(202)
+      .json({ message: "Member role updated successfully.", project });
   } catch (err) {
     return res.status(500).json({ message: "Error updating member role." });
   }
-})
+});
 
 //#endregion
 

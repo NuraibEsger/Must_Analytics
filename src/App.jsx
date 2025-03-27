@@ -13,6 +13,8 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import AcceptInvite from "./components/AcceptInvite";
 import ImageEdit from "./Pages/ImageEdit";
 import { lazy, Suspense } from "react";
+import ForgotPassword from "./Pages/ForgotPassword";
+import ResetPasswordPage from "./Pages/ResetPasswordPage";
 
 const ProjectDetail = lazy(() => import("./Pages/ProjectDetail"));
 
@@ -29,6 +31,14 @@ const router = createBrowserRouter([
       {
         path: "/register",
         element: <Register />,
+      },,
+      {
+        path: "/forgot-password",
+        element: <ForgotPassword />,
+      },,
+      {
+        path: "/reset-password",
+        element: <ResetPasswordPage />,
       },
       {
         index: true,
